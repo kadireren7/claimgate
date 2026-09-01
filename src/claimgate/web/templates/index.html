@@ -1,0 +1,919 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="Authorization infrastructure for AI agents performing irreversible actions">
+  <title>ClaimGate — AI Action Authorization</title>
+  <link rel="icon" type="image/png" sizes="32x32" href="/static/brand/favicon-32.png">
+  <link rel="icon" type="image/png" sizes="64x64" href="/static/brand/favicon-64.png">
+  <link rel="apple-touch-icon" sizes="180x180" href="/static/brand/apple-touch-icon.png">
+  <link rel="stylesheet" href="/static/app.css">
+  <script src="/static/app.js" defer></script>
+</head>
+<body>
+  <span class="sr-only">Authorization operations at a glance. Approve &amp; send for signature. Agent cannot sign. Prove the boundary under pressure.</span>
+  <header class="topbar">
+    <div class="topbar-page-context">
+      <span class="topbar-page-kicker">Workspace</span>
+      <strong id="current-page-title">Overview</strong>
+    </div>
+    <div class="topbar-right">
+      <div class="app-topbar-chrome">
+        <a href="/app/integrations" data-route id="topbar-integrations-chip" class="topbar-chip">
+          <span class="dot" aria-hidden="true"></span>
+          <span id="topbar-integrations-chip-label">Integrations —</span>
+        </a>
+        <a href="/app/approvals" data-route id="topbar-notifications" class="topbar-icon-btn" aria-label="Pending approvals">
+          <span class="notification-icon" aria-hidden="true"></span>
+          <span id="topbar-notif-badge" class="topbar-notif-badge" hidden>0</span>
+        </a>
+        <div class="topbar-user-menu">
+          <button type="button" class="topbar-user" id="topbar-user-button" aria-haspopup="true" aria-expanded="false">
+            <span class="topbar-user-avatar" id="topbar-user-avatar" aria-hidden="true">—</span>
+            <span id="topbar-user-name">Signed out</span>
+          </button>
+          <div class="topbar-user-dropdown" id="topbar-user-dropdown" hidden role="menu">
+            <div class="topbar-user-dropdown-header">
+              <div id="topbar-user-email" class="topbar-user-email">—</div>
+              <div id="topbar-user-workspace" class="topbar-user-workspace">—</div>
+            </div>
+            <a href="/app/settings" data-route role="menuitem">Profile</a>
+            <a href="/app/settings" data-route role="menuitem">Workspace settings</a>
+            <button type="button" id="topbar-logout-button" role="menuitem">Log out</button>
+          </div>
+        </div>
+      </div>
+      <span id="foxit-status-pill" class="foxit-status-pill" hidden></span>
+    </div>
+  </header>
+
+  <div class="shell">
+  <div class="app-shell">
+    <aside class="app-sidebar" aria-label="Platform navigation">
+      <a href="/app" data-route class="brand-lockup sidebar-brand">
+        <img src="/static/brand/claimgate-mark.png" alt="" class="brand-logo-mark">
+        <div>
+          <div class="brand-name">ClaimGate</div>
+          <div class="brand-subtitle" id="brand-subtitle">AI Action Authorization</div>
+        </div>
+      </a>
+      <div class="sidebar-workspace">
+        <span class="workspace-avatar" aria-hidden="true">C</span>
+        <span>
+          <strong id="topbar-workspace-label">ClaimGate</strong>
+          <small>Production workspace</small>
+        </span>
+      </div>
+      <nav class="app-sidebar-nav">
+        <a href="/app" data-route data-page="overview" class="app-nav-link">Overview</a>
+        <a href="/app/workflows" data-route data-page="workflows" class="app-nav-link">Workflows</a>
+        <a href="/app/approvals" data-route data-page="approvals" class="app-nav-link">
+          Approvals
+          <span id="sidebar-approvals-badge" class="app-nav-badge" hidden>0</span>
+        </a>
+        <a href="/app/evidence" data-route data-page="evidence" class="app-nav-link">Evidence</a>
+        <a href="/app/policies" data-route data-page="policies" class="app-nav-link">Policies</a>
+        <a href="/app/audit" data-route data-page="audit" class="app-nav-link">Audit</a>
+        <a href="/app/integrations" data-route data-page="integrations" class="app-nav-link">Integrations</a>
+        <a href="/app/security" data-route data-page="security" class="app-nav-link">Security</a>
+        <a href="/app/settings" data-route data-page="settings" class="app-nav-link">Settings</a>
+      </nav>
+      <div class="sidebar-assurance">
+        <span class="assurance-dot" aria-hidden="true"></span>
+        <div><strong>Execution protected</strong><small>Agents cannot sign directly</small></div>
+      </div>
+    </aside>
+
+    <main class="app-content" id="app-content">
+
+    <section class="app-page" id="page-overview" data-page="overview" aria-labelledby="page-overview-title">
+      <div class="page-header">
+        <div>
+          <h1 id="page-overview-title">Overview</h1>
+          <p>Authorization activity across your workspace.</p>
+        </div>
+        <div class="page-header-actions">
+          <a href="/app/workflows" data-route class="primary-button primary-button-link">
+            <span>New workflow</span><span aria-hidden="true">→</span>
+          </a>
+        </div>
+      </div>
+
+      <div id="overview-metrics" class="metric-grid"></div>
+
+      <div class="overview-grid">
+        <div class="overview-column">
+          <section class="op-card" aria-labelledby="overview-recent-workflows-title">
+            <div class="op-card-header">
+              <h2 id="overview-recent-workflows-title">Recent workflows</h2>
+              <a href="/app/workflows" data-route class="op-card-link">View all →</a>
+            </div>
+            <div class="data-table-wrap">
+              <table class="data-table" id="overview-workflows-table">
+                <thead>
+                  <tr>
+                    <th>Workflow</th>
+                    <th>Status</th>
+                    <th>Policy profile</th>
+                    <th>Approval</th>
+                    <th>Updated</th>
+                  </tr>
+                </thead>
+                <tbody id="overview-workflows-tbody"></tbody>
+              </table>
+            </div>
+          </section>
+
+          <section class="op-card" aria-labelledby="overview-audit-title">
+            <div class="op-card-header">
+              <h2 id="overview-audit-title">Recent audit activity</h2>
+              <a href="/app/audit" data-route class="op-card-link">Open audit trail →</a>
+            </div>
+            <div class="data-table-wrap">
+              <table class="data-table" id="overview-audit-table">
+                <thead>
+                  <tr>
+                    <th>Workflow</th>
+                    <th>Decision</th>
+                    <th>Receipt SHA-256</th>
+                    <th>Recorded</th>
+                  </tr>
+                </thead>
+                <tbody id="overview-audit-tbody"></tbody>
+              </table>
+            </div>
+          </section>
+        </div>
+
+        <div class="overview-column">
+          <section class="op-card" aria-labelledby="overview-approvals-title">
+            <div class="op-card-header">
+              <h2 id="overview-approvals-title">Approval queue</h2>
+              <a href="/app/approvals" data-route class="op-card-link">Open queue →</a>
+            </div>
+            <div id="overview-approvals-preview" class="approvals-queue"></div>
+          </section>
+
+          <section class="op-card" aria-labelledby="overview-policy-title">
+            <div class="op-card-header">
+              <h2 id="overview-policy-title">Policy enforcement</h2>
+              <a href="/app/policies" data-route class="op-card-link">View policies →</a>
+            </div>
+            <div id="overview-policy-summary"></div>
+          </section>
+
+          <section class="op-card" aria-labelledby="overview-integrations-title">
+            <div class="op-card-header">
+              <h2 id="overview-integrations-title">Integration health</h2>
+              <a href="/app/integrations" data-route class="op-card-link">Manage →</a>
+            </div>
+            <dl id="overview-diagnostics-grid" class="diagnostics-grid"></dl>
+          </section>
+        </div>
+      </div>
+    </section>
+
+    <section class="app-page" id="page-workflows" data-page="workflows" hidden aria-labelledby="page-workflows-title">
+      <div class="page-header">
+        <div>
+          <h1 id="page-workflows-title">Workflows</h1>
+          <p>Review and manage authorization workflows.</p>
+        </div>
+        <div class="page-header-actions">
+          <a href="#start-workflow" class="primary-button primary-button-link">
+            <span>New workflow</span><span aria-hidden="true">→</span>
+          </a>
+        </div>
+      </div>
+
+      <section class="op-card op-card-spaced" aria-labelledby="workflows-table-title">
+        <div class="op-card-header">
+          <h2 id="workflows-table-title">All workflow runs</h2>
+          <div class="table-filter-bar">
+            <input
+              id="workflows-search"
+              class="table-filter-input"
+              type="search"
+              placeholder="Search workflows…"
+              aria-label="Search workflows"
+            >
+            <select id="workflows-status-filter" class="table-filter-select" aria-label="Filter by status">
+              <option value="all">All statuses</option>
+              <option value="ready">Ready</option>
+              <option value="blocked">Blocked</option>
+              <option value="pending">Pending approval</option>
+              <option value="sent">Sent</option>
+            </select>
+            <select id="workflows-action-filter" class="table-filter-select" aria-label="Filter by action">
+              <option value="all">All actions</option>
+              <option value="SIGN_DOCUMENT">Sign document</option>
+            </select>
+          </div>
+        </div>
+        <div class="data-table-wrap">
+          <table class="data-table" id="workflows-table">
+            <thead>
+              <tr>
+                <th>Workflow</th>
+                <th>Action type</th>
+                <th>Status</th>
+                <th>Policy profile</th>
+                <th>Approval state</th>
+                <th>Integration</th>
+                <th>Last updated</th>
+              </tr>
+            </thead>
+            <tbody id="workflows-tbody"></tbody>
+          </table>
+        </div>
+      </section>
+
+      <aside id="verify-authorize" class="control-panel panel control-panel-static" aria-labelledby="configuration-title">
+        <div id="start-workflow" class="scroll-anchor" aria-hidden="true"></div>
+        <div class="workflow-builder-head">
+          <div>
+            <p class="section-kicker">Start a new workflow</p>
+            <h2 id="configuration-title">Verify a document before execution</h2>
+            <p>Upload the final artifact, attach trusted evidence, and apply deterministic policy.</p>
+          </div>
+          <ol class="workflow-stepper" aria-label="New workflow steps">
+            <li class="active"><span>1</span>Upload document</li>
+            <li><span>2</span>Add evidence</li>
+            <li><span>3</span>Choose policy</li>
+            <li><span>4</span>Verify</li>
+          </ol>
+        </div>
+        <div class="workflow-builder-grid">
+        <div class="workflow-builder-main">
+        <div class="upload-field builder-section" id="artifact-upload-field">
+          <span class="builder-section-number">01</span>
+          <div class="builder-section-content">
+          <label class="field-label" for="artifact-file-input">Document to verify (PDF)</label>
+          <div class="upload-dropzone" id="artifact-dropzone" tabindex="0" role="button" aria-describedby="artifact-upload-hint">
+            <input id="artifact-file-input" type="file" accept="application/pdf" hidden>
+            <div class="upload-dropzone-empty" id="artifact-dropzone-empty">
+              <span class="upload-icon" aria-hidden="true">↑</span>
+              <span>Drop a PDF here or click to choose a file</span>
+            </div>
+            <div class="upload-dropzone-file" id="artifact-dropzone-file" hidden>
+              <span class="upload-file-name" id="artifact-file-name"></span>
+              <button type="button" id="artifact-file-remove" class="upload-file-remove" aria-label="Remove file">Remove</button>
+            </div>
+          </div>
+          <p id="artifact-upload-hint" class="profile-description">
+            The exact agreement or contract proposed for signing. Up to 10 MB.
+          </p>
+          </div>
+        </div>
+
+        <div class="evidence-section builder-section">
+          <span class="builder-section-number">02</span>
+          <div class="builder-section-content">
+          <div class="evidence-title-row">
+            <p class="field-label">Supporting evidence</p>
+            <span id="evidence-count" class="count-badge">0 sources</span>
+          </div>
+          <p class="profile-description">
+            Add an approved source file or paste authoritative source text.
+          </p>
+          <div id="evidence-inputs" class="evidence-inputs"></div>
+          <button id="add-evidence-button" class="secondary-button" type="button">+ Add evidence</button>
+          </div>
+        </div>
+        </div>
+
+        <div class="workflow-builder-side">
+        <div class="profile-section builder-section compact">
+          <span class="builder-section-number">03</span>
+          <div class="builder-section-content">
+          <label class="field-label" for="policy-profile-select">Policy profile</label>
+          <select id="policy-profile-select" class="profile-select" disabled></select>
+          <p id="policy-profile-description" class="profile-description">
+            Loading deterministic policy profiles…
+          </p>
+          </div>
+        </div>
+        <div class="verify-action-panel">
+        <span class="builder-section-number">04</span>
+        <div>
+          <strong>Ready to verify?</strong>
+          <p>Foxit extraction, semantic verification, and policy evaluation run together.</p>
+        </div>
+        <button id="generate-button" class="primary-button" type="button" disabled>
+          <span>Verify document</span>
+          <span aria-hidden="true">→</span>
+        </button>
+        <p id="generate-button-hint" class="profile-description" hidden></p>
+        <p class="boundary-note">
+          Execution credentials stay backend-only.
+        </p>
+        </div>
+        </div>
+        </div>
+      </aside>
+    </section>
+
+    <section class="app-page" id="page-workflow-detail" data-page="workflow-detail" hidden aria-labelledby="page-workflow-detail-title">
+      <div class="page-header">
+        <div>
+          <p class="eyebrow" id="workflow-detail-action">Sign document</p>
+          <h1 id="page-workflow-detail-title">Workflow review</h1>
+          <p id="workflow-detail-created">Review the verified artifact and its authorization record.</p>
+        </div>
+        <div class="page-header-actions">
+          <a href="/app/workflows" data-route class="secondary-button">← All workflows</a>
+          <span id="workflow-header-status" class="status-pill neutral">Loading</span>
+          <span id="workflow-header-policy" class="graph-mode-badge">Policy —</span>
+          <span id="workflow-header-risk" class="graph-mode-badge">Risk —</span>
+          <span id="run-reference" class="run-reference"></span>
+        </div>
+      </div>
+
+      <div class="workflow-detail-body">
+        <div id="empty-state" class="empty-state">
+          <div class="empty-symbol" aria-hidden="true">✓</div>
+          <h3>Ready to verify</h3>
+          <p>Upload a document and add supporting evidence to start verification.</p>
+          <div class="boundary-flow" aria-label="ClaimGate workflow boundary">
+            <span>Document</span><b>→</b><span>Extraction</span><b>→</b><span>Claims</span><b>→</b>
+            <span>Policy</span><b>→</b><span>Human</span>
+          </div>
+        </div>
+
+        <div id="run-view" class="run-view" hidden>
+          <section class="progress-card" aria-labelledby="progress-title">
+            <div class="progress-header">
+              <div>
+                <p class="section-kicker">Live workflow</p>
+                <h3 id="progress-title">Verification progress</h3>
+              </div>
+              <span id="progress-state" class="progress-state">Running</span>
+            </div>
+            <ol id="progress-steps" class="progress-steps"></ol>
+          </section>
+
+          <section id="error-panel" class="error-panel" hidden role="alert">
+            <strong>Workflow failed</strong>
+            <p id="error-copy"></p>
+          </section>
+
+          <div id="result-view" hidden>
+            <section id="decision-banner" class="decision-banner" aria-live="polite">
+              <div class="decision-icon" aria-hidden="true"></div>
+              <div>
+                <p class="decision-kicker">Deterministic policy decision</p>
+                <h3 id="decision-label"></h3>
+                <p id="decision-explanation" class="decision-explanation"></p>
+              </div>
+            </section>
+
+            <section id="public-evidence-update" class="public-evidence-update" hidden aria-live="polite">
+              <div class="public-evidence-flow">
+                <span id="public-previous-status">UNSUPPORTED</span><b>→</b>
+                <span>PUBLIC SEARCH</span><b>→</b>
+                <span id="public-source-count">SOURCE DISCOVERED</span><b>→</b>
+                <span id="public-current-status">SUPPORTED</span>
+              </div>
+              <div>
+                <strong id="public-update-title">Policy reevaluated</strong>
+                <p id="public-update-detail"></p>
+              </div>
+            </section>
+
+            <div class="detail-tabs">
+              <div class="page-tabs-nav" role="tablist" aria-label="Workflow detail">
+                <button type="button" class="page-tab active" role="tab" data-detail-tab="artifact" aria-selected="true">Document</button>
+                <button type="button" class="page-tab" role="tab" data-detail-tab="evidence" aria-selected="false">Claims &amp; Evidence</button>
+                <button type="button" class="page-tab" role="tab" data-detail-tab="policy" aria-selected="false">Policy</button>
+                <button type="button" class="page-tab" role="tab" data-detail-tab="audit" aria-selected="false">Audit</button>
+              </div>
+
+              <div class="page-tab-panel" data-detail-panel="artifact">
+                <section class="artifact-card" aria-labelledby="pdf-title">
+                  <div class="card-header">
+                    <div>
+                      <p class="section-kicker">Final artifact</p>
+                      <h3 id="pdf-title">Generated agreement</h3>
+                    </div>
+                    <a id="pdf-link" class="text-link" href="#" target="_blank" rel="noopener">
+                      Open PDF ↗
+                    </a>
+                  </div>
+                  <p class="sponsor-caption">Generated and re-read before every decision.</p>
+                  <iframe id="pdf-preview" class="pdf-preview" title="Generated ClaimGate agreement"></iframe>
+                </section>
+              </div>
+
+              <div class="page-tab-panel" data-detail-panel="evidence" hidden>
+                <section id="graph-summary-panel" class="graph-summary-panel" aria-labelledby="graph-summary-title">
+                  <div class="card-header">
+                    <div>
+                      <p class="section-kicker">Evidence Graph</p>
+                      <h3 id="graph-summary-title">Relationship summary</h3>
+                    </div>
+                    <span class="graph-mode-badge">Explanatory only</span>
+                  </div>
+                  <div class="graph-summary-grid">
+                    <div><strong id="graph-claim-count">0</strong><span>Material claims</span></div>
+                    <div><strong id="graph-source-count">0</strong><span>Evidence sources</span></div>
+                    <div class="supports"><strong id="graph-support-count">0</strong><span>Supports</span></div>
+                    <div class="conflicts"><strong id="graph-conflict-count">0</strong><span>Conflicts</span></div>
+                    <div class="uncertain"><strong id="graph-uncertain-count">0</strong><span>Unresolved</span></div>
+                  </div>
+                </section>
+
+                <section class="claims-section" aria-labelledby="claims-title">
+                  <div class="card-header">
+                    <div>
+                      <p class="section-kicker">Material facts</p>
+                      <h3 id="claims-title">Verified claims</h3>
+                    </div>
+                    <span id="claim-count" class="count-badge"></span>
+                  </div>
+                  <div id="claim-list" class="claim-list"></div>
+                  <section id="evidence-chain" class="evidence-chain" aria-live="polite">
+                    <div class="chain-header">
+                      <div>
+                        <p class="section-kicker">Selected claim</p>
+                        <h4 id="chain-claim-title">Select a claim</h4>
+                      </div>
+                      <span id="chain-edge-count" class="count-badge">0 relationships</span>
+                    </div>
+                    <p id="chain-claim-value" class="chain-claim-value"></p>
+                    <div id="evidence-chain-list" class="evidence-chain-list"></div>
+                  </section>
+                </section>
+              </div>
+
+              <div class="page-tab-panel" data-detail-panel="policy" hidden>
+                <section class="policy-layers-panel" aria-labelledby="policy-layers-title">
+                  <div class="card-header">
+                    <div>
+                      <p class="section-kicker">Policy-as-Code</p>
+                      <h3 id="policy-layers-title">Decision layers</h3>
+                    </div>
+                    <span id="selected-profile-name" class="graph-mode-badge"></span>
+                  </div>
+                  <div class="policy-layer-grid">
+                    <div><span>Baseline</span><strong id="baseline-decision">—</strong></div>
+                    <div><span>Profile</span><strong id="profile-decision">—</strong></div>
+                    <div><span>Final</span><strong id="final-decision">—</strong></div>
+                  </div>
+                  <div id="profile-blockers" class="profile-blockers" hidden></div>
+                </section>
+              </div>
+
+              <div class="page-tab-panel" data-detail-panel="audit" hidden>
+                <div id="audit-replay">
+                <section id="receipt-panel" class="receipt-panel" aria-labelledby="receipt-title">
+                  <div class="card-header">
+                    <div>
+                      <p class="section-kicker">Tamper-evident audit artifact</p>
+                      <h3 id="receipt-title">Decision Receipt</h3>
+                    </div>
+                    <span id="receipt-id" class="receipt-id"></span>
+                  </div>
+                  <div class="receipt-overview">
+                    <div>
+                      <span>Decision</span>
+                      <strong id="receipt-decision">—</strong>
+                    </div>
+                    <div>
+                      <span>Receipt SHA-256</span>
+                      <code id="receipt-hash">—</code>
+                    </div>
+                    <div>
+                      <span>Chain</span>
+                      <code id="receipt-chain">Genesis receipt</code>
+                    </div>
+                  </div>
+                  <div class="receipt-controls">
+                    <button id="verify-receipt-button" type="button">Verify Receipt</button>
+                    <a id="download-receipt-json" href="#" download>Download canonical JSON</a>
+                    <button id="generate-receipt-pdf" type="button">Generate PDF</button>
+                    <a id="open-receipt-pdf" href="#" target="_blank" rel="noopener" hidden>Open receipt PDF ↗</a>
+                  </div>
+                  <div id="receipt-verification" class="receipt-verification" hidden aria-live="polite"></div>
+                  <details class="structured-receipt">
+                    <summary>Structured receipt</summary>
+                    <pre id="structured-receipt-json"></pre>
+                  </details>
+                </section>
+
+                <section id="replay-panel" class="replay-panel" aria-labelledby="replay-title">
+                  <div class="card-header">
+                    <div>
+                      <p class="section-kicker">Audit History / Replay</p>
+                      <h3 id="replay-title">Prove the historical binding</h3>
+                    </div>
+                    <span class="graph-mode-badge">Verification only</span>
+                  </div>
+                  <details class="replay-details" open>
+                    <summary>Replay bindings, timeline, and controls</summary>
+                    <p class="replay-boundary-note">
+                      Reads a server-known receipt and current artifact observations. Cannot
+                      alter the historical decision, approve, repair, or send.
+                    </p>
+                    <div class="replay-summary">
+                      <div><span>Original decision</span><strong id="replay-original-decision">—</strong></div>
+                      <div><span>Current state</span><strong id="replay-workflow-state">—</strong></div>
+                      <div><span>Policy profile</span><code id="replay-policy-profile">—</code></div>
+                      <div><span>Latest receipt</span><code id="replay-latest-receipt">—</code></div>
+                      <div><span>PDF SHA-256</span><code id="replay-pdf-hash">—</code></div>
+                      <div><span>Evidence SHA-256</span><code id="replay-evidence-hash">—</code></div>
+                    </div>
+                    <div class="timeline-shell">
+                      <p class="field-label">Audit timeline</p>
+                      <ol id="audit-timeline" class="audit-timeline"></ol>
+                    </div>
+                    <div class="replay-controls">
+                      <label>
+                        <span>Historical receipt</span>
+                        <select id="replay-receipt-select"></select>
+                      </label>
+                      <label>
+                        <span>Controlled observation</span>
+                        <select id="replay-preset-select"></select>
+                      </label>
+                      <button id="run-replay-button" type="button">REPLAY VERIFICATION</button>
+                    </div>
+                    <p id="replay-preset-description" class="replay-preset-description"></p>
+                    <div id="replay-result" class="replay-result" hidden aria-live="polite">
+                      <div class="replay-result-header">
+                        <div>
+                          <span>Replay status</span>
+                          <strong id="replay-status">—</strong>
+                        </div>
+                        <p id="replay-status-detail"></p>
+                      </div>
+                      <div id="replay-checks" class="replay-checks"></div>
+                    </div>
+                  </details>
+                </section>
+                </div>
+
+                <details class="audit-panel">
+                  <summary>
+                    <span>Audit metadata</span>
+                    <span class="audit-summary-note">Bound to this exact artifact</span>
+                  </summary>
+                  <dl id="audit-metadata" class="audit-grid"></dl>
+                </details>
+              </div>
+            </div>
+
+            <section id="approval-panel" class="approval-panel" hidden>
+              <div>
+                <p class="section-kicker">Human checkpoint</p>
+                <h3>Approve &amp; send with Foxit eSign</h3>
+                <p class="sponsor-caption">Review the verified artifact before authorizing execution.</p>
+                <label class="confirmation-control" for="human-confirmation">
+                  <input id="human-confirmation" type="checkbox">
+                  <span>I reviewed this exact PDF and explicitly approve sending it to the configured signer.</span>
+                </label>
+              </div>
+              <div class="send-controls">
+                <button id="approve-send-button" type="button" disabled>
+                  Approve &amp; send with Foxit eSign
+                </button>
+                <div id="send-status" class="send-status" hidden aria-live="polite">
+                  <strong id="send-status-label"></strong>
+                  <span id="send-status-detail"></span>
+                </div>
+              </div>
+            </section>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="app-page" id="page-approvals" data-page="approvals" hidden aria-labelledby="page-approvals-title">
+      <div class="page-header">
+        <div>
+          <h1 id="page-approvals-title">Approvals</h1>
+          <p>Review actions waiting for formal human authorization.</p>
+        </div>
+      </div>
+      <div id="approvals-queue" class="approvals-queue"></div>
+      <details class="page-details-note">
+        <summary>How review works</summary>
+        <p>
+          Review opens the full workflow record — the same hash-bound approval and
+          Approve &amp; Send control used everywhere else in ClaimGate.
+        </p>
+      </details>
+    </section>
+
+    <section class="app-page" id="page-evidence" data-page="evidence" hidden aria-labelledby="page-evidence-title">
+      <div class="page-header">
+        <div>
+          <h1 id="page-evidence-title">Evidence</h1>
+          <p>Trusted sources used across authorization workflows.</p>
+        </div>
+        <div class="page-header-actions">
+          <a href="/app/workflows#start-workflow" data-route class="primary-button primary-button-link">Upload evidence <span aria-hidden="true">→</span></a>
+        </div>
+      </div>
+
+      <section class="op-card op-card-spaced" aria-labelledby="evidence-legend-title">
+        <div class="op-card-header">
+          <h2 id="evidence-legend-title">Source trust hierarchy</h2>
+        </div>
+        <div id="evidence-provenance-legend" class="provenance-legend"></div>
+      </section>
+
+      <div id="evidence-catalog" class="catalog-grid"></div>
+      <details class="page-details-note">
+        <summary>About evidence ingestion</summary>
+        <p>
+          Evidence is supplied per workflow — uploaded as a file or pasted as text when you
+          verify a document — and is never promoted to authoritative status by anything the
+          model says about it.
+        </p>
+      </details>
+    </section>
+
+    <section class="app-page" id="page-policies" data-page="policies" hidden aria-labelledby="page-policies-title">
+      <div class="page-header">
+        <div>
+          <h1 id="page-policies-title">Policies</h1>
+          <p>Deterministic, fail-closed authorization profiles.</p>
+        </div>
+      </div>
+
+      <section class="op-card op-card-spaced" aria-labelledby="policies-layers-title">
+        <div class="op-card-header">
+          <h2 id="policies-layers-title">How enforcement layers combine</h2>
+        </div>
+        <div class="policy-formula">
+          <div class="policy-formula-term">
+            <span>Baseline policy</span>
+            <strong>Code-only, fail-closed</strong>
+          </div>
+          <b>AND</b>
+          <div class="policy-formula-term">
+            <span>Selected profile</span>
+            <strong>Adds blockers only</strong>
+          </div>
+          <b>=</b>
+          <div class="policy-formula-term final">
+            <span>Final authorization</span>
+            <strong>READY or BLOCKED</strong>
+          </div>
+        </div>
+      </section>
+
+      <div id="policies-catalog" class="catalog-grid"></div>
+    </section>
+
+    <section class="app-page" id="page-audit" data-page="audit" hidden aria-labelledby="page-audit-title">
+      <div class="page-header">
+        <div>
+          <h1 id="page-audit-title">Audit</h1>
+          <p>Tamper-evident receipts for every completed workflow.</p>
+        </div>
+      </div>
+      <section class="op-card" aria-labelledby="audit-ledger-title">
+        <div class="op-card-header">
+          <h2 id="audit-ledger-title">Receipt ledger</h2>
+        </div>
+        <div class="data-table-wrap">
+          <table class="data-table" id="audit-ledger-table">
+            <thead>
+              <tr>
+                <th>Workflow</th>
+                <th>Decision</th>
+                <th>Workflow state</th>
+                <th>Latest receipt SHA-256</th>
+                <th>Recorded</th>
+                <th></th>
+              </tr>
+            </thead>
+            <tbody id="audit-ledger-tbody"></tbody>
+          </table>
+        </div>
+      </section>
+    </section>
+
+    <section class="app-page" id="page-integrations" data-page="integrations" hidden aria-labelledby="page-integrations-title">
+      <div class="page-header">
+        <div>
+          <h1 id="page-integrations-title">Integrations</h1>
+          <p>Connection health for document, signing, and evidence services.</p>
+        </div>
+      </div>
+
+      <section class="op-card op-card-spaced" aria-labelledby="integrations-diagnostics-title">
+        <div class="op-card-header">
+          <h2 id="integrations-diagnostics-title">System status</h2>
+        </div>
+        <dl id="diagnostics-grid" class="diagnostics-grid"></dl>
+        <details class="page-details-note">
+          <summary>What LIVE and SIMULATED mean</summary>
+          <p>
+            Configuration presence only — credential values are never returned. LIVE means a
+            real credentialed connection is configured; SIMULATED means the action type has
+            no external execution adapter by construction.
+          </p>
+        </details>
+      </section>
+
+    <section id="action-authorization" class="action-authorization panel integration-capabilities" aria-labelledby="action-authorization-title">
+      <div class="attack-lab-header">
+        <div>
+          <p class="eyebrow">Action Authorization</p>
+          <h2 id="action-authorization-title">One authorization pipeline, six action types.</h2>
+          <p>
+            ClaimGate authorizes a typed ProposedAction, not just an eSign send. SIGN_DOCUMENT
+            is the only action type with a real external execution adapter; every other type
+            below is demonstrated but never actually executed.
+          </p>
+        </div>
+      </div>
+
+      <div class="action-pipeline" aria-label="SIGN_DOCUMENT authorization pipeline">
+        <span>AGENT PROPOSES</span><b>→</b>
+        <span>SIGN_DOCUMENT</span><b>→</b>
+        <span>CLAIMGATE EVALUATES EVIDENCE + POLICY</span><b>→</b>
+        <span class="pipeline-highlight">HUMAN APPROVAL REQUIRED</span><b>→</b>
+        <span>E-SIGNATURE</span>
+      </div>
+      <dl id="action-pipeline-detail" class="action-pipeline-detail" hidden>
+        <div><dt>Action ID</dt><dd id="action-detail-id">—</dd></div>
+        <div><dt>Action SHA-256</dt><dd id="action-detail-hash">—</dd></div>
+        <div><dt>Risk level</dt><dd id="action-detail-risk">—</dd></div>
+        <div><dt>Authorization outcome</dt><dd id="action-detail-outcome">—</dd></div>
+      </dl>
+
+      <section class="protected-actions-panel" aria-labelledby="protected-actions-title">
+        <div class="card-header">
+          <div>
+            <p class="section-kicker">Other protected actions</p>
+            <h3 id="protected-actions-title">Same architecture, no external execution</h3>
+          </div>
+        </div>
+        <div id="protected-actions-grid" class="protected-actions-grid"></div>
+      </section>
+    </section>
+    </section>
+
+    <section class="app-page" id="page-security" data-page="security" hidden aria-labelledby="page-security-title">
+      <div class="page-header">
+        <div>
+          <h1 id="page-security-title">Security</h1>
+          <p>Authorization boundaries and security invariants enforced in code.</p>
+        </div>
+      </div>
+
+      <div class="page-tabs-nav" role="tablist" aria-label="Security detail">
+        <button type="button" class="page-tab active" role="tab" data-security-tab="model" aria-selected="true">Authorization model</button>
+        <button type="button" class="page-tab" role="tab" data-security-tab="attack" aria-selected="false">Attack validation</button>
+      </div>
+
+      <div class="page-tab-panel" data-security-panel="model">
+        <section id="architecture" class="architecture-panel panel" aria-labelledby="architecture-title">
+          <ol class="architecture-flow" aria-label="ClaimGate authorization architecture">
+            <li>AI Agent</li>
+            <li>ProposedAction</li>
+            <li>Generated artifact</li>
+            <li>Semantic extraction</li>
+            <li>Evidence Graph</li>
+            <li>Deterministic Baseline Policy</li>
+            <li>Policy-as-Code</li>
+            <li>ClaimGate Authorization</li>
+            <li>Human Approval</li>
+            <li>Backend Execution Capability</li>
+            <li class="architecture-flow-final">E-Signature</li>
+          </ol>
+
+          <div class="architecture-invariants">
+            <div>
+              <strong>LLM does not control policy.</strong>
+              <span>Semantic output feeds, but never replaces, the deterministic policy engine.</span>
+            </div>
+            <div>
+              <strong>Browser has no execution credentials.</strong>
+              <span>Signing and model credentials stay server-side; the browser never receives them.</span>
+            </div>
+            <div>
+              <strong>Agent has no eSign tool.</strong>
+              <span>The semantic provider has no import path to the eSign client or the action execution registry.</span>
+            </div>
+            <div>
+              <strong>SIGN_DOCUMENT is the only live adapter.</strong>
+              <span>Every other action type resolves to a simulated, in-process executor.</span>
+            </div>
+          </div>
+
+          <p class="architecture-links">
+            Full trust-boundary writeup: <code>docs/architecture.md</code>.
+          </p>
+        </section>
+      </div>
+
+      <div class="page-tab-panel" data-security-panel="attack" hidden>
+        <section id="attack-lab" class="attack-lab panel" aria-labelledby="attack-lab-title">
+          <div class="attack-lab-header">
+            <div>
+              <p class="eyebrow">Attack validation suite</p>
+              <h2 id="attack-lab-title">Security Validation Suite</h2>
+              <p>
+                Validate policy gates, hashes, and approval bindings under controlled adversarial
+                conditions. Validation uses an isolated recording adapter, never live signing.
+              </p>
+            </div>
+            <div class="attack-flow" aria-label="Attack Lab security flow">
+              <span>Attack attempt</span><b>→</b><span>Security boundary</span><b>→</b><span>Blocked</span>
+            </div>
+          </div>
+
+          <section class="invariants-panel" aria-labelledby="invariants-title">
+            <div class="card-header">
+              <div>
+                <p class="section-kicker">Computed architecture checks</p>
+                <h3 id="invariants-title">Safety invariants</h3>
+              </div>
+              <span id="invariant-count" class="count-badge">Checking…</span>
+            </div>
+            <details class="invariants-details" open>
+              <summary>Show computed security invariants</summary>
+              <div id="security-invariants" class="security-invariants"></div>
+            </details>
+          </section>
+
+          <div id="attack-scenarios" class="attack-scenarios"></div>
+        </section>
+      </div>
+    </section>
+
+    <section class="app-page" id="page-settings" data-page="settings" hidden aria-labelledby="page-settings-title">
+      <div class="page-header">
+        <div>
+          <h1 id="page-settings-title">Settings</h1>
+          <p>Profile, workspace, preferences, and integration configuration.</p>
+        </div>
+      </div>
+
+      <section class="settings-section" aria-labelledby="settings-workspace-title">
+        <h2 id="settings-workspace-title">Workspace</h2>
+        <p class="settings-section-hint">Values are read from your account.</p>
+        <div class="settings-row">
+          <div>
+            <div class="settings-row-label">Workspace name</div>
+          </div>
+          <div id="settings-workspace-name">—</div>
+        </div>
+        <div class="settings-row">
+          <div>
+            <div class="settings-row-label">Signed in as</div>
+          </div>
+          <div id="settings-operator-email">—</div>
+        </div>
+      </section>
+
+      <section class="settings-section" aria-labelledby="settings-profile-title">
+        <h2 id="settings-profile-title">Profile</h2>
+        <p class="settings-section-hint">Operator identity for this workspace.</p>
+        <div class="settings-row"><div class="settings-row-label">Account access</div><div>Workspace member</div></div>
+      </section>
+
+      <section class="settings-section" aria-labelledby="settings-preferences-title">
+        <h2 id="settings-preferences-title">Preferences</h2>
+        <p class="settings-section-hint">Product display and notification defaults.</p>
+        <div class="settings-row"><div class="settings-row-label">Interface theme</div><div>Light</div></div>
+        <div class="settings-row"><div class="settings-row-label">Approval notifications</div><div>Enabled</div></div>
+      </section>
+
+      <section class="settings-section" aria-labelledby="settings-integrations-title">
+        <h2 id="settings-integrations-title">Integration configuration</h2>
+        <p class="settings-section-hint">Same safe, secret-free source as the Integrations page — see <code>GET /api/diagnostics</code>.</p>
+        <dl id="settings-diagnostics-grid" class="diagnostics-grid"></dl>
+      </section>
+    </section>
+
+    </main>
+  </div>
+  </div>
+
+  <footer class="app-footer">
+    <div class="app-footer-brand">
+      <img src="/static/brand/claimgate-mark.png" alt="" class="brand-logo-mark">
+      <div>
+        <div class="brand-name">ClaimGate</div>
+        <p class="app-footer-tagline">Policy decides. Humans approve. Backends execute.</p>
+      </div>
+    </div>
+    <nav class="app-footer-links" aria-label="Product">
+      <a href="/app" data-route>Overview</a>
+      <a href="/app/workflows" data-route>Workflows</a>
+      <a href="/app/security" data-route>Security</a>
+      <a href="/app/integrations" data-route>Integrations</a>
+    </nav>
+    <div class="app-footer-integrations">
+      <span class="eyebrow">Integrations</span>
+      <span>Document Engine · E-Signature</span>
+    </div>
+  </footer>
+</body>
+</html>

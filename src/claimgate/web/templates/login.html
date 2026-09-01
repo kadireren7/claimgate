@@ -1,0 +1,49 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="Sign in to ClaimGate.">
+  <title>Sign in — ClaimGate</title>
+  <link rel="icon" type="image/png" sizes="32x32" href="/static/brand/favicon-32.png">
+  <link rel="icon" type="image/png" sizes="64x64" href="/static/brand/favicon-64.png">
+  <link rel="apple-touch-icon" sizes="180x180" href="/static/brand/apple-touch-icon.png">
+  <link rel="stylesheet" href="/static/app.css">
+  <link rel="stylesheet" href="/static/auth.css">
+  <script src="/static/auth.js" defer></script>
+</head>
+<body class="auth-body">
+  <div class="auth-shell">
+    <a href="/" class="brand-lockup auth-brand">
+      <img src="/static/brand/claimgate-logo.png" alt="ClaimGate" class="brand-logo-wordmark">
+    </a>
+
+    <div class="auth-card">
+      <p class="eyebrow">Sign in</p>
+      <h1>Welcome back</h1>
+      <p class="auth-card-copy">Sign in to your ClaimGate workspace.</p>
+
+      <div id="auth-error" class="auth-error" hidden role="alert"></div>
+
+      <form id="login-form" class="auth-form" novalidate>
+        <label class="auth-field">
+          <span>Email</span>
+          <input type="email" name="email" id="login-email" autocomplete="email" required>
+        </label>
+        <label class="auth-field">
+          <span>Password</span>
+          <input type="password" name="password" id="login-password" autocomplete="current-password" required>
+        </label>
+        <div class="auth-form-row">
+          <a href="/forgot-password">Forgot password?</a>
+        </div>
+        <button type="submit" class="primary-button auth-submit" id="login-submit">
+          <span>Sign in</span><span aria-hidden="true">→</span>
+        </button>
+      </form>
+
+      <p class="auth-switch">No account? <a href="/signup">Create account</a></p>
+    </div>
+  </div>
+</body>
+</html>

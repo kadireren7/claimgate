@@ -1,0 +1,34 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>ClaimGate Controlled Agreement</title>
+  <style>
+    @page { size: A4; margin: 24mm; }
+    body { font-family: Arial, sans-serif; color: #172033; line-height: 1.5; }
+    h1 { color: #173f73; margin-bottom: 24px; }
+    .agreement-field { margin: 12px 0; padding-bottom: 8px; border-bottom: 1px solid #d7dee8; }
+    .label { font-weight: bold; }
+    .notice { margin-top: 36px; padding: 14px; background: #eef4fa; }
+    .signature { margin-top: 48px; border-top: 1px solid #172033; padding-top: 10px; }
+    .esign-tag { color: #ffffff; font-size: 8px; }
+  </style>
+</head>
+<body>
+  <h1>ClaimGate Controlled Agreement</h1>
+  <p class="agreement-field"><span class="label">Party name:</span> {{ draft.party_name }}</p>
+  <p class="agreement-field"><span class="label">Contract amount:</span> {{ draft.amount_display }}</p>
+  <p class="agreement-field"><span class="label">Quantity:</span> {{ draft.quantity }}</p>
+  <p class="agreement-field"><span class="label">Delivery date:</span> {{ draft.delivery_date_display }}</p>
+  <p class="agreement-field"><span class="label">Scope:</span> {{ draft.scope }}</p>
+  <p class="agreement-field"><span class="label">Deliverable:</span> {{ draft.deliverable }}</p>
+  {% if draft.public_fact %}
+  <p class="agreement-field"><span class="label">Public status:</span> {{ draft.public_fact }}</p>
+  {% endif %}
+  <p class="notice">Generated through Foxit PDF Services and subject to ClaimGate verification.</p>
+  <div class="signature">
+    Authorized recipient signature
+    <span class="esign-tag">${s:1:______}</span>
+  </div>
+</body>
+</html>

@@ -1,0 +1,153 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="Control what AI agents are allowed to do before irreversible execution.">
+  <title>ClaimGate — AI Action Authorization Platform</title>
+  <link rel="icon" type="image/png" sizes="32x32" href="/static/brand/favicon-32.png">
+  <link rel="icon" type="image/png" sizes="64x64" href="/static/brand/favicon-64.png">
+  <link rel="apple-touch-icon" sizes="180x180" href="/static/brand/apple-touch-icon.png">
+  <link rel="stylesheet" href="/static/app.css">
+  <link rel="stylesheet" href="/static/landing.css">
+  <script src="/static/landing.js" defer></script>
+</head>
+<body class="landing-body">
+  <header class="landing-nav">
+    <a href="/" class="brand-lockup" aria-label="ClaimGate home">
+      <img src="/static/brand/claimgate-logo.png" alt="ClaimGate" class="brand-logo-wordmark">
+    </a>
+    <nav class="landing-nav-links" aria-label="Primary">
+      <a href="#product">Product</a>
+      <a href="#security">Security</a>
+      <a href="#integrations">Integrations</a>
+    </nav>
+    <div class="landing-nav-actions">
+      <a href="/login" class="nav-sign-in">Sign in</a>
+      <a href="/signup" class="primary-button primary-button-link">Get started</a>
+    </div>
+  </header>
+
+  <main>
+    <section class="landing-hero" id="product">
+      <div class="landing-hero-copy-block">
+        <div class="hero-eyebrow"><span></span> AI Action Authorization Platform</div>
+        <h1>Control what AI agents are allowed to do.</h1>
+        <p>Verify evidence, enforce policy, require human approval, and gate irreversible execution.</p>
+        <div class="landing-hero-ctas">
+          <a href="/signup" class="primary-button primary-button-link">Get started <span aria-hidden="true">→</span></a>
+          <a href="/login" class="secondary-button">Sign in</a>
+        </div>
+        <div class="hero-assurance">
+          <span><i aria-hidden="true">✓</i> Deterministic policy</span>
+          <span><i aria-hidden="true">✓</i> Artifact-bound approval</span>
+          <span><i aria-hidden="true">✓</i> Backend-only execution</span>
+        </div>
+      </div>
+
+      <div class="product-preview" aria-label="ClaimGate workflow authorization preview">
+        <div class="preview-browser-bar">
+          <img src="/static/brand/claimgate-mark.png" alt="" class="preview-logo">
+          <span>Workflow review</span>
+          <span class="preview-run">CG-4821</span>
+        </div>
+        <div class="preview-body">
+          <aside class="preview-nav" aria-hidden="true">
+            <span class="active"></span><span></span><span></span><span></span><span></span>
+          </aside>
+          <div class="preview-content">
+            <div class="preview-heading">
+              <div><small>SIGN DOCUMENT</small><strong>Vendor agreement — Q4</strong></div>
+              <span class="preview-policy">Standard contract</span>
+            </div>
+            <div class="preview-decision">
+              <span class="decision-check">✓</span>
+              <div><small>AUTHORIZATION STATUS</small><strong>Ready for human approval</strong><p>Evidence verified. Deterministic policy passed.</p></div>
+            </div>
+            <div class="preview-tabs"><span class="active">Document</span><span>Claims &amp; Evidence</span><span>Policy</span><span>Audit</span></div>
+            <div class="preview-workarea">
+              <div class="preview-document">
+                <div class="document-sheet">
+                  <b>MASTER SERVICES AGREEMENT</b>
+                  <span></span><span></span><span class="short"></span>
+                  <em>AGREEMENT TERMS</em>
+                  <span></span><span></span><span></span><span class="short"></span>
+                </div>
+              </div>
+              <div class="preview-review">
+                <small>VERIFICATION SUMMARY</small>
+                <div><span>Material claims</span><strong>6 / 6</strong></div>
+                <div><span>Policy evaluation</span><b>Passed</b></div>
+                <div><span>Risk level</span><strong>Medium</strong></div>
+                <button type="button" tabindex="-1">Approve &amp; send with Foxit eSign</button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="trust-strip" aria-label="Authorization flow">
+      <span>AI proposes</span><b>→</b><span>Evidence verifies</span><b>→</b><span>Policy decides</span><b>→</b><span>Human approves</span><b>→</b><span>Backend executes</span>
+    </section>
+
+    <section class="landing-section consequence-section" aria-labelledby="consequence-title">
+      <div class="section-intro">
+        <p class="eyebrow">Authorization infrastructure</p>
+        <h2 id="consequence-title">Built for consequential AI actions</h2>
+        <p>ClaimGate inserts a verifiable control layer between an AI proposal and real-world execution.</p>
+      </div>
+      <div class="capability-list">
+        <article><span>01</span><div><h3>Verify final artifacts</h3><p>Inspect the exact document proposed for execution—not an earlier draft.</p></div></article>
+        <article><span>02</span><div><h3>Check trusted evidence</h3><p>Compare material claims against approved internal and external sources.</p></div></article>
+        <article><span>03</span><div><h3>Apply deterministic policy</h3><p>Fail-closed policy code produces the authorization decision.</p></div></article>
+        <article><span>04</span><div><h3>Require human approval</h3><p>Bind explicit approval to the exact artifact, evidence, and action.</p></div></article>
+      </div>
+    </section>
+
+    <section class="landing-section foxit-section" id="integrations" aria-labelledby="foxit-title">
+      <div class="foxit-copy">
+        <p class="eyebrow">Foxit integration</p>
+        <h2 id="foxit-title">From verified document to controlled signature.</h2>
+        <p>Generate and re-read PDFs with Foxit, then send for signature only after a human approves the verified artifact.</p>
+        <div class="foxit-points"><span><i>✓</i> Foxit PDF generation &amp; extraction</span><span><i>✓</i> Human-triggered Foxit eSign</span></div>
+      </div>
+      <div class="integration-status-panel">
+        <div class="integration-status-head"><span>Integration health</span><small>Live workspace status</small></div>
+        <div id="landing-integrations" class="landing-integration-grid"></div>
+      </div>
+    </section>
+
+    <section class="landing-section security-section" id="security" aria-labelledby="security-title">
+      <div class="section-intro">
+        <p class="eyebrow">Security by design</p>
+        <h2 id="security-title">Authority stays outside the model.</h2>
+        <p>Clear trust boundaries keep reasoning separate from authorization and execution.</p>
+      </div>
+      <div class="security-principles">
+        <article><span class="security-icon">01</span><h3>LLM cannot authorize</h3><p>Semantic output informs the review. Deterministic policy makes the decision.</p></article>
+        <article><span class="security-icon">02</span><h3>Approvals are artifact-bound</h3><p>Any change to the PDF, evidence, policy, or action invalidates approval.</p></article>
+        <article><span class="security-icon">03</span><h3>Credentials stay backend-only</h3><p>Execution credentials never reach the browser or the AI agent.</p></article>
+      </div>
+    </section>
+
+    <section class="landing-cta-band">
+      <div><p class="eyebrow">Start with control</p><h2>Put authorization before execution.</h2></div>
+      <a href="/signup" class="primary-button primary-button-link">Create your workspace <span aria-hidden="true">→</span></a>
+    </section>
+  </main>
+
+  <footer class="landing-footer">
+    <div class="landing-footer-main">
+      <div class="landing-footer-brand"><img src="/static/brand/claimgate-logo.png" alt="ClaimGate" class="brand-logo-wordmark"><p>AI Action Authorization</p></div>
+      <div class="landing-footer-columns">
+        <div><strong>Product</strong><a href="#product">Overview</a><a href="/app/workflows">Workflows</a></div>
+        <div><strong>Security</strong><a href="#security">Authorization model</a><a href="/app/audit">Audit</a></div>
+        <div><strong>Integrations</strong><a href="#integrations">Foxit PDF</a><a href="#integrations">Foxit eSign</a></div>
+        <div><strong>Resources</strong><a href="/app/security">Architecture</a><a href="/login">Sign in</a></div>
+      </div>
+    </div>
+    <div class="landing-footer-bottom"><span>© 2026 ClaimGate</span><strong>Policy decides. Humans approve. Backends execute.</strong></div>
+  </footer>
+</body>
+</html>
