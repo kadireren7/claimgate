@@ -45,6 +45,37 @@ async def test_unauthenticated_app_subroute_redirects_to_login(tmp_path: Path) -
 
 
 @pytest.mark.asyncio
+async def test_run_and_execution_apis_require_session(tmp_path: Path) -> None:
+    app = build_app(tmp_path)
+    transport = httpx.ASGITransport(app=app)
+    async with httpx.AsyncClient(transport=transport, base_url="http://test") as client:
+        anonymous_list = await client.get("/api/runs")
+        anonymous_start = await client.post(
+            "/api/runs",
+            json={"preset": "safe", "policy_profile": "standard-contract-v1"},
+        )
+        anonymous_detail = await client.get("/api/runs/unknown")
+        anonymous_pdf = await client.get("/api/runs/unknown/pdf")
+        anonymous_approval = await client.post(
+            "/api/runs/unknown/approve-and-send", json={"confirmed": True}
+        )
+
+        assert anonymous_list.status_code == 401
+        assert anonymous_start.status_code == 401
+        assert anonymous_detail.status_code == 401
+        assert anonymous_pdf.status_code == 401
+        assert anonymous_approval.status_code == 401
+
+        signup = await client.post("/api/auth/signup", json=SIGNUP_PAYLOAD)
+        assert signup.status_code == 201
+        authenticated_list = await client.get("/api/runs")
+        authenticated_missing = await client.get("/api/runs/unknown")
+
+    assert authenticated_list.status_code == 200
+    assert authenticated_missing.status_code == 404
+
+
+@pytest.mark.asyncio
 async def test_signup_login_reach_app_and_logout_blocks_again(tmp_path: Path) -> None:
     app = build_app(tmp_path)
     transport = httpx.ASGITransport(app=app)

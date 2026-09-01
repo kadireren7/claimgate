@@ -25,6 +25,18 @@ QUOTATIONS = {
 }
 
 
+@pytest.fixture(autouse=True)
+def deterministic_provider_defaults(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Keep deterministic tests isolated from credential-bearing local .env files.
+
+    Individual provider/configuration tests explicitly override these values when
+    they need to exercise the OpenAI or public-evidence selection boundaries.
+    """
+
+    monkeypatch.setenv("CLAIMGATE_SEMANTIC_PROVIDER", "scripted")
+    monkeypatch.setenv("CLAIMGATE_PUBLIC_EVIDENCE_PROVIDER", "scripted")
+
+
 @pytest.fixture
 def agreement_pdf() -> bytes:
     return b"%PDF-1.4\nClaimGate policy fixture"

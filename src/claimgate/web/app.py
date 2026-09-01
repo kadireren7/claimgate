@@ -739,7 +739,9 @@ def create_app(
     async def start_run(
         payload: StartRunRequest,
         background_tasks: BackgroundTasks,
+        request: Request,
     ) -> dict[str, str]:
+        _require_api_session(request)
         run_id = secrets.token_hex(12)
         output_path = artifacts / f"{run_id}.pdf"
         run = DemoRun(
@@ -823,16 +825,18 @@ def create_app(
         }
 
     @application.get("/api/runs")
-    async def list_runs() -> dict[str, object]:
+    async def list_runs(request: Request) -> dict[str, object]:
         """Read-only, newest-first projection of existing run state for the
         Overview, Workflows, Approvals, and Audit list views. Adds no new
         decision or authorization semantics — every field here is already
         computed by _serialize_result for the single-run endpoint."""
 
+        _require_api_session(request)
         return {"runs": [_serialize_run_summary(run) for run in registry.all_runs()]}
 
     @application.get("/api/runs/{run_id}")
-    async def get_run(run_id: str) -> dict[str, object]:
+    async def get_run(run_id: str, request: Request) -> dict[str, object]:
+        _require_api_session(request)
         run = registry.get(run_id)
         if run is None:
             raise HTTPException(status_code=404, detail="Demo run not found")
@@ -840,8 +844,9 @@ def create_app(
 
     @application.post("/api/runs/{run_id}/approve-and-send")
     async def approve_and_send(
-        run_id: str, payload: ApprovalRequest
+        run_id: str, payload: ApprovalRequest, request: Request
     ) -> dict[str, object]:
+        _require_api_session(request)
         if not payload.confirmed:
             raise HTTPException(
                 status_code=400,
@@ -905,7 +910,8 @@ def create_app(
             return _serialize_send(run)
 
     @application.get("/api/runs/{run_id}/pdf")
-    async def get_pdf(run_id: str) -> Response:
+    async def get_pdf(run_id: str, request: Request) -> Response:
+        _require_api_session(request)
         run = registry.get(run_id)
         if (
             run is None
@@ -924,7 +930,8 @@ def create_app(
         )
 
     @application.get("/api/runs/{run_id}/receipt.json")
-    async def download_receipt_json(run_id: str) -> Response:
+    async def download_receipt_json(run_id: str, request: Request) -> Response:
+        _require_api_session(request)
         run = _require_receipt_run(registry, run_id)
         receipt = run.receipt_history[-1].receipt
         return Response(
@@ -939,14 +946,16 @@ def create_app(
         )
 
     @application.post("/api/runs/{run_id}/receipt/verify")
-    async def verify_run_receipt(run_id: str) -> dict[str, object]:
+    async def verify_run_receipt(run_id: str, request: Request) -> dict[str, object]:
+        _require_api_session(request)
         run = _require_receipt_run(registry, run_id)
         return _verify_latest_receipt(run).model_dump(mode="json")
 
     @application.post("/api/runs/{run_id}/replay")
     async def replay_historical_receipt(
-        run_id: str, payload: ReplayApiRequest
+        run_id: str, payload: ReplayApiRequest, request: Request
     ) -> dict[str, object]:
+        _require_api_session(request)
         run = _require_receipt_run(registry, run_id)
         entry = next(
             (
@@ -978,8 +987,9 @@ def create_app(
 
     @application.post("/api/runs/{run_id}/claims/{claim_id}/public-evidence")
     async def search_public_evidence(
-        run_id: str, claim_id: str
+        run_id: str, claim_id: str, request: Request
     ) -> dict[str, object]:
+        _require_api_session(request)
         run = _require_receipt_run(registry, run_id)
         async with run.public_evidence_lock:
             if run.send_attempted or run.profile_approval is not None:
@@ -1040,7 +1050,8 @@ def create_app(
             return serialized
 
     @application.post("/api/runs/{run_id}/receipt/pdf")
-    async def generate_receipt_pdf(run_id: str) -> dict[str, str]:
+    async def generate_receipt_pdf(run_id: str, request: Request) -> dict[str, str]:
+        _require_api_session(request)
         run = _require_receipt_run(registry, run_id)
         async with run.receipt_lock:
             receipt = run.receipt_history[-1].receipt
@@ -1058,7 +1069,8 @@ def create_app(
         return {"pdf_url": f"/api/runs/{run_id}/receipt.pdf"}
 
     @application.get("/api/runs/{run_id}/receipt.pdf")
-    async def get_receipt_pdf(run_id: str) -> Response:
+    async def get_receipt_pdf(run_id: str, request: Request) -> Response:
+        _require_api_session(request)
         run = _require_receipt_run(registry, run_id)
         latest_hash = run.receipt_history[-1].receipt.receipt_sha256
         if (

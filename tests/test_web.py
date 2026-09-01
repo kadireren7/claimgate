@@ -6,6 +6,7 @@ from pathlib import Path
 
 import httpx
 import pytest
+from starlette.types import ASGIApp, Receive, Scope, Send
 
 from claimgate.application import (
     ApprovalBoundaryError,
@@ -16,6 +17,7 @@ from claimgate.domain import ApprovalRecord, WorkflowState
 from claimgate.integrations.foxit_esign import ESignSendResult, Signer
 from claimgate.policy_profiles import FINANCIAL_HIGH_RISK
 from claimgate.web.app import create_app
+from claimgate.web.auth import SESSION_COOKIE_NAME
 from claimgate.web.service import Phase3DemoService
 
 EXTRACTED_AGREEMENT = """ClaimGate Controlled Agreement
@@ -71,6 +73,25 @@ class FakeESignSender:
         return ESignSendResult(folder_id="foxit-folder-9001")
 
 
+class _SessionMiddleware:
+    """Attach one local user session to product-flow tests.
+
+    Authentication itself is exercised separately in ``tests/test_auth.py``;
+    these tests focus on verification, policy, approval, receipt, and replay.
+    """
+
+    def __init__(self, app: ASGIApp, *, token: str) -> None:
+        self.app = app
+        self.cookie = f"{SESSION_COOKIE_NAME}={token}".encode("ascii")
+
+    async def __call__(
+        self, scope: Scope, receive: Receive, send: Send
+    ) -> None:
+        if scope["type"] == "http":
+            scope = {**scope, "headers": [*scope["headers"], (b"cookie", self.cookie)]}
+        await self.app(scope, receive, send)
+
+
 def build_test_app(tmp_path: Path, *, esign_sender: FakeESignSender | None = None):
     adapters: list[FakeFoxitPdfAdapter] = []
     sender = esign_sender or FakeESignSender()
@@ -88,6 +109,14 @@ def build_test_app(tmp_path: Path, *, esign_sender: FakeESignSender | None = Non
     )
     app.state.test_adapters = adapters
     app.state.test_esign_sender = sender
+    user = app.state.users.create(
+        full_name="Test Operator",
+        email="web-tests@example.com",
+        workspace_name="ClaimGate Tests",
+        password="test-password",
+    )
+    token = app.state.sessions.create(user.user_id)
+    app.add_middleware(_SessionMiddleware, token=token)
     return app
 
 
