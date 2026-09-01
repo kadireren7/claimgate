@@ -61,12 +61,23 @@ handled as follows:
 2. `claimgate.integrations.foxit_pdf` requests PDF generation or extraction through that
    boundary.
 3. ClaimGate re-reads the produced artifact and computes its canonical SHA-256 binding.
-4. Extracted text enters the semantic boundary for structured claim extraction and evidence
+4. A deterministic quality gate measures text density, printable/garbled characters, detected
+   page coverage, repeated page noise, and conservative table-layout signals.
+5. Image-like documents use the allowlisted Foxit OCR operation. OCR output remains untrusted;
+   insufficient output stops verification with `OCR_REQUIRED`.
+6. Page-aware text is processed in stable whole-page chunks. Exact claim spans retain page and
+   chunk provenance, and conflicting critical candidates become `UNCERTAIN` rather than being
+   silently selected.
+7. Extracted text enters the semantic boundary for structured claim extraction and evidence
    comparison.
-5. The artifact is re-read again before live execution; cached UI state is not treated as proof.
+8. The artifact is re-read again before live execution; cached UI state is not treated as proof.
 
 The PDF artifact is therefore part of the authorization input, not a decorative output produced
 after the decision.
+
+Foxit plain-text output does not always expose page separators. In that case ClaimGate reports
+page provenance as unavailable instead of inventing page numbers. Long text is still bounded by
+the deterministic character threshold, while missing or low-density content remains fail-closed.
 
 ## Semantic provider boundary
 

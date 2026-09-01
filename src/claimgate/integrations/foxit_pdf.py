@@ -14,6 +14,7 @@ from mcp import ClientSession, StdioServerParameters
 from mcp.client.stdio import stdio_client
 
 from claimgate.config import FoxitPdfSettings
+from claimgate.extraction import estimate_pdf_page_count
 
 
 class FoxitPdfError(RuntimeError):
@@ -29,6 +30,10 @@ class FoxitPdfClient:
 
     def __init__(self, settings: FoxitPdfSettings) -> None:
         self._settings = settings
+        self._ocr_outputs: set[Path] = set()
+
+    def extraction_used_ocr(self, output_path: Path) -> bool:
+        return output_path.expanduser().resolve() in self._ocr_outputs
 
     async def generate_pdf_from_html(self, html: str, output_path: Path) -> Path:
         """Upload fixed HTML, convert it, and download the resulting PDF."""
@@ -124,9 +129,7 @@ class FoxitPdfClient:
             "pdf_from_html",
             {"documentId": document_id},
         )
-        result_document_id = self._field(
-            conversion, "resultDocumentId", "pdf_from_html"
-        )
+        result_document_id = self._field(conversion, "resultDocumentId", "pdf_from_html")
 
         resolved_output = output_path.expanduser().resolve()
         await self._call_json(
@@ -169,23 +172,63 @@ class FoxitPdfClient:
         )
 
         resolved_output = output_path.expanduser().resolve()
+        extracted_text = await self._download_text(
+            session,
+            result_document_id,
+            resolved_output,
+        )
+        minimum_ocr_density = estimate_pdf_page_count(pdf_path) * 20
+        if sum(not character.isspace() for character in extracted_text) < minimum_ocr_density:
+            ocr = await self._call_json(
+                session,
+                "pdf_ocr",
+                {
+                    "documentId": document_id,
+                    "languages": ["en-US", "tr-TR"],
+                },
+            )
+            searchable_pdf_id = self._field(ocr, "resultDocumentId", "pdf_ocr")
+            ocr_conversion = await self._call_json(
+                session,
+                "pdf_to_text",
+                {"documentId": searchable_pdf_id},
+            )
+            ocr_text_id = self._field(
+                ocr_conversion,
+                "resultDocumentId",
+                "pdf_to_text",
+            )
+            extracted_text = await self._download_text(
+                session,
+                ocr_text_id,
+                resolved_output,
+            )
+            self._ocr_outputs.add(resolved_output)
+        else:
+            self._ocr_outputs.discard(resolved_output)
+        return extracted_text
+
+    async def _download_text(
+        self,
+        session: _ToolSession,
+        document_id: str,
+        output_path: Path,
+    ) -> str:
         await self._call_json(
             session,
             "download_document",
             {
-                "documentId": result_document_id,
-                "outputPath": str(resolved_output),
-                "filename": resolved_output.name,
+                "documentId": document_id,
+                "outputPath": str(output_path),
+                "filename": output_path.name,
             },
         )
         try:
-            extracted_text = resolved_output.read_text(encoding="utf-8-sig")
+            extracted_text = output_path.read_text(encoding="utf-8-sig")
         except (OSError, UnicodeError) as exc:
             raise FoxitPdfError(
-                f"Foxit text output could not be read as UTF-8: {resolved_output}"
+                f"Foxit text output could not be read as UTF-8: {output_path}"
             ) from exc
-        if not extracted_text.strip():
-            raise FoxitPdfError("Foxit returned empty extracted text")
         return extracted_text
 
     @staticmethod

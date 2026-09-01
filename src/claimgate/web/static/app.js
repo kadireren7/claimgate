@@ -38,6 +38,11 @@ const elements = {
   profileBlockers: document.getElementById("profile-blockers"),
   pdfLink: document.getElementById("pdf-link"),
   pdfPreview: document.getElementById("pdf-preview"),
+  extractionQuality: document.getElementById("extraction-quality"),
+  extractionQualityBadge: document.getElementById("extraction-quality-badge"),
+  extractionCoverage: document.getElementById("extraction-coverage"),
+  extractionQualityMessage: document.getElementById("extraction-quality-message"),
+  extractionWarnings: document.getElementById("extraction-warnings"),
   claimCount: document.getElementById("claim-count"),
   claimList: document.getElementById("claim-list"),
   graphSummaryPanel: document.getElementById("graph-summary-panel"),
@@ -538,6 +543,7 @@ function renderResult(result) {
 
   elements.pdfLink.href = result.pdf_url;
   elements.pdfPreview.src = result.pdf_url;
+  renderExtractionQuality(result.extraction);
   renderEvidenceGraph(result.evidence_graph);
   renderClaims(result.claims, result.evidence_graph);
   renderAudit(result.audit);
@@ -551,6 +557,31 @@ function renderResult(result) {
   } else if (passed) {
     state.approvalAvailable = result.approval_available;
   }
+}
+
+function renderExtractionQuality(extraction) {
+  const status = extraction.status.toLowerCase();
+  elements.extractionQuality.className = `extraction-quality ${status}`;
+  elements.extractionQualityBadge.className = `extraction-quality-badge ${status}`;
+  elements.extractionQualityBadge.textContent =
+    `Extraction quality: ${status.charAt(0).toUpperCase()}${status.slice(1)}`;
+  elements.extractionCoverage.textContent =
+    `${extraction.pages_with_text}/${extraction.page_count} pages with text`;
+  const details = [];
+  if (extraction.used_ocr) details.push("Foxit OCR fallback used");
+  if (extraction.chunked) details.push(`${extraction.chunk_count} stable page chunks analyzed`);
+  if (extraction.table_detected) details.push("Table-like content detected");
+  if (!extraction.page_provenance_available) details.push("Page boundaries unavailable in text output");
+  elements.extractionQualityMessage.textContent = details.length
+    ? details.join(" · ")
+    : "Full text coverage; source citations remain subject to exact-quotation validation.";
+  elements.extractionWarnings.replaceChildren();
+  [...extraction.checks, ...extraction.ambiguities].forEach((warning) => {
+    elements.extractionWarnings.append(
+      node("li", "", `${warning.code.replaceAll("_", " ")}: ${warning.message}`),
+    );
+  });
+  elements.extractionWarnings.hidden = !elements.extractionWarnings.children.length;
 }
 
 // Display-only headline for the decision banner (Phase 16 copy tightening).
@@ -605,8 +636,15 @@ function renderClaims(claims, graph) {
       node("span", "claim-status", claim.status),
     );
     const quote = claim.evidence_quote || "No evidence quotation supplied";
+    const pageLabel = claim.page_numbers.length
+      ? ` · Page ${claim.page_numbers.join(", ")}`
+      : "";
+    const tableLabel = claim.table_origin ? " · Table" : "";
+    const evidencePageLabel = claim.evidence_page_numbers.length
+      ? ` · Evidence page ${claim.evidence_page_numbers.join(", ")}`
+      : "";
     const source = claim.evidence_source_title
-      ? `${claim.evidence_source_title} · ${claim.evidence_source_id}`
+      ? `${claim.evidence_source_title} · ${claim.evidence_source_id}${pageLabel}${evidencePageLabel}${tableLabel}`
       : "No evidence source";
     card.append(
       topLine,

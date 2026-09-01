@@ -295,8 +295,9 @@ docs/                  # Architecture, submission copy, product screenshots
 - Documents and evidence use local filesystem storage rather than object storage.
 - Authentication is suitable for local evaluation, not production identity or tenancy.
 - Live PDF/eSign flows require operator-managed Foxit credentials and MCP setup.
-- Semantic extraction can be fallible; authorization therefore remains deterministic and
-  fail-closed.
+- Complex PDFs use extraction-quality checks, stable page chunking, and Foxit OCR fallback when
+  needed. Page citations are shown only when Foxit output preserves page boundaries; ambiguous
+  or insufficient extraction remains fail-closed.
 - Foxit eSign is the only live irreversible action adapter; the other registered actions are
   simulation-only.
 

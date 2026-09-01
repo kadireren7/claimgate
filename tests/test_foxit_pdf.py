@@ -53,6 +53,33 @@ class FakeExtractionSession:
         )
 
 
+class FakeOcrSession:
+    def __init__(self) -> None:
+        self.calls: list[tuple[str, dict[str, Any]]] = []
+        self.download_count = 0
+
+    async def call_tool(self, name: str, arguments: dict[str, Any]) -> Any:
+        self.calls.append((name, arguments))
+        if name == "upload_document":
+            payload = {"success": True, "documentId": "scanned-pdf"}
+        elif name == "pdf_ocr":
+            payload = {"success": True, "resultDocumentId": "searchable-pdf"}
+        elif name == "pdf_to_text":
+            result_id = "empty-text" if arguments["documentId"] == "scanned-pdf" else "ocr-text"
+            payload = {"success": True, "resultDocumentId": result_id}
+        elif name == "download_document":
+            self.download_count += 1
+            text = "" if self.download_count == 1 else "OCR extracted searchable agreement text"
+            Path(arguments["outputPath"]).write_text(text)
+            payload = {"success": True, "outputPath": arguments["outputPath"]}
+        else:
+            raise AssertionError(f"Unexpected tool: {name}")
+        return SimpleNamespace(
+            isError=False,
+            content=[SimpleNamespace(text=json.dumps(payload))],
+        )
+
+
 @pytest.mark.asyncio
 async def test_html_pipeline_is_strictly_allowlisted(tmp_path: Path) -> None:
     settings = FoxitPdfSettings("https://pdf.example", "id", "secret", tmp_path)
@@ -126,3 +153,26 @@ async def test_pdf_text_pipeline_is_strictly_allowlisted(tmp_path: Path) -> None
         "pdf_to_text",
         "download_document",
     ]
+
+
+@pytest.mark.asyncio
+async def test_low_density_pdf_uses_allowlisted_foxit_ocr_fallback(tmp_path: Path) -> None:
+    client = FoxitPdfClient(FoxitPdfSettings("https://pdf.example", "id", "secret", tmp_path))
+    session = FakeOcrSession()
+    pdf_path = tmp_path / "scanned.pdf"
+    pdf_path.write_bytes(b"%PDF-1.4\n<< /Type /Page >>")
+    output_path = tmp_path / "scanned.txt"
+
+    text = await client._extract_text_with_session(session, pdf_path, output_path)
+
+    assert text == "OCR extracted searchable agreement text"
+    assert client.extraction_used_ocr(output_path) is True
+    assert [name for name, _ in session.calls] == [
+        "upload_document",
+        "pdf_to_text",
+        "download_document",
+        "pdf_ocr",
+        "pdf_to_text",
+        "download_document",
+    ]
+    assert session.calls[3][1]["languages"] == ["en-US", "tr-TR"]

@@ -23,6 +23,14 @@ from claimgate.domain import (
 )
 from claimgate.evidence_graph import EvidenceGraph
 from claimgate.evidence_graph.builder import build_evidence_graph
+from claimgate.extraction import (
+    ClaimProvenance,
+    ExtractedDocument,
+    ExtractionAmbiguity,
+    ExtractionQualityStatus,
+    build_extracted_document,
+    detect_material_ambiguities,
+)
 from claimgate.policy_profiles import (
     STANDARD_CONTRACT,
     PolicyEvaluationContext,
@@ -35,6 +43,7 @@ from claimgate.semantic import (
     EvidenceDocument,
     ExtractedClaim,
     SemanticEngine,
+    SemanticVerificationStatus,
 )
 from claimgate.semantic.engine import SemanticOutputError
 
@@ -70,6 +79,10 @@ class Phase3Result:
     profile_decision: ProfilePolicyDecision
     decision: PolicyDecision
     semantic_failure: str | None
+    extracted_document: ExtractedDocument
+    claim_provenance: tuple[ClaimProvenance, ...]
+    extraction_ambiguities: tuple[ExtractionAmbiguity, ...]
+    semantic_chunk_count: int
 
 
 class Phase3Workflow:
@@ -105,9 +118,7 @@ class Phase3Workflow:
 
         self._report(progress_observer, Phase3Progress.GENERATING_DOCUMENT)
         rendered_html = self._renderer.render(draft)
-        generated_path = await self._pdf_adapter.generate_pdf_from_html(
-            rendered_html, output_path
-        )
+        generated_path = await self._pdf_adapter.generate_pdf_from_html(rendered_html, output_path)
         generated_path = generated_path.resolve()
         return await self._finish(
             workflow=workflow,
@@ -167,15 +178,33 @@ class Phase3Workflow:
         extracted_text = await self._pdf_adapter.extract_text_from_pdf(
             generated_path, extracted_text_path
         )
+        used_ocr_getter = getattr(self._pdf_adapter, "extraction_used_ocr", None)
+        used_ocr = bool(used_ocr_getter(extracted_text_path)) if used_ocr_getter else False
+        extracted_document = build_extracted_document(
+            extracted_text,
+            pdf_path=generated_path,
+            used_ocr=used_ocr,
+        )
+        extraction_ambiguities = detect_material_ambiguities(extracted_document)
 
         extracted_claims: tuple[ExtractedClaim, ...] = ()
+        claim_provenance: tuple[ClaimProvenance, ...] = ()
+        semantic_chunk_count = 0
         claims: tuple[Claim, ...] = ()
         semantic_comparisons: tuple[EvidenceComparison, ...] = ()
         evidence_graph: EvidenceGraph | None = None
         semantic_failure: str | None = None
         try:
+            if extracted_document.quality.status is ExtractionQualityStatus.INSUFFICIENT:
+                codes = ", ".join(extracted_document.quality.blocker_codes)
+                raise SemanticOutputError(
+                    f"Verification stopped because extraction quality was insufficient: {codes}"
+                )
             self._report(progress_observer, Phase3Progress.EXTRACTING_CLAIMS)
-            extracted_claims = await self._semantic_engine.extract_claims(extracted_text)
+            page_aware = await self._semantic_engine.extract_claims_page_aware(extracted_document)
+            extracted_claims = page_aware.claims
+            claim_provenance = page_aware.provenance
+            semantic_chunk_count = page_aware.chunk_count
             claims = self._semantic_engine.to_domain_claims(extracted_claims)
             self._report(progress_observer, Phase3Progress.CHECKING_EVIDENCE)
             verification_bundle = await self._semantic_engine.verify_evidence_bundle(
@@ -186,6 +215,40 @@ class Phase3Workflow:
             )
             verification = verification_bundle.snapshot
             semantic_comparisons = verification_bundle.comparisons
+            ambiguous_categories = {ambiguity.category for ambiguity in extraction_ambiguities}
+            if ambiguous_categories:
+                ambiguous_ids = {
+                    claim.claim_id
+                    for claim in extracted_claims
+                    if claim.category.value in ambiguous_categories
+                }
+                retained_comparisons = tuple(
+                    item for item in semantic_comparisons if item.claim_id not in ambiguous_ids
+                )
+                ambiguity_results = tuple(
+                    EvidenceComparison(
+                        claim_id=claim.claim_id,
+                        status=SemanticVerificationStatus.UNCERTAIN,
+                        evidence_id=None,
+                        quotation=None,
+                        notes=next(
+                            ambiguity.message
+                            for ambiguity in extraction_ambiguities
+                            if ambiguity.category == claim.category.value
+                        ),
+                    )
+                    for claim in extracted_claims
+                    if claim.claim_id in ambiguous_ids
+                )
+                verification = type(verification)(
+                    pdf_sha256=verification.pdf_sha256,
+                    evidence_sha256=verification.evidence_sha256,
+                    results=self._semantic_engine.project_policy_results(
+                        extracted_claims,
+                        retained_comparisons + ambiguity_results,
+                    ),
+                )
+                semantic_comparisons = retained_comparisons
             evidence_graph = build_evidence_graph(
                 claims=extracted_claims,
                 evidence_documents=evidence_documents_tuple,
@@ -241,11 +304,13 @@ class Phase3Workflow:
             profile_decision=effective_evaluation.profile_decision,
             decision=decision,
             semantic_failure=semantic_failure,
+            extracted_document=extracted_document,
+            claim_provenance=claim_provenance,
+            extraction_ambiguities=extraction_ambiguities,
+            semantic_chunk_count=semantic_chunk_count,
         )
 
     @staticmethod
-    def _report(
-        observer: ProgressObserver | None, progress: Phase3Progress
-    ) -> None:
+    def _report(observer: ProgressObserver | None, progress: Phase3Progress) -> None:
         if observer is not None:
             observer(progress)

@@ -53,6 +53,7 @@ from claimgate.domain import (
     VerificationStatus,
     WorkflowState,
 )
+from claimgate.extraction import ExtractionQualityStatus, build_extracted_document
 from claimgate.integrations.foxit_esign import Signer
 from claimgate.policy_profiles import BuiltInPolicyProfile
 from claimgate.public_evidence import (
@@ -186,9 +187,7 @@ def _validate_startup_configuration() -> None:
     problems: list[str] = []
     semantic_provider = os.getenv("CLAIMGATE_SEMANTIC_PROVIDER", "scripted").strip().lower()
     if semantic_provider == "openai" and not os.getenv("OPENAI_API_KEY", "").strip():
-        problems.append(
-            "CLAIMGATE_SEMANTIC_PROVIDER=openai requires OPENAI_API_KEY to be set."
-        )
+        problems.append("CLAIMGATE_SEMANTIC_PROVIDER=openai requires OPENAI_API_KEY to be set.")
     public_evidence_provider = (
         os.getenv("CLAIMGATE_PUBLIC_EVIDENCE_PROVIDER", "scripted").strip().lower()
     )
@@ -207,9 +206,7 @@ def _validate_startup_configuration() -> None:
         )
         missing = [name for name in required_for_live_send if not os.getenv(name, "").strip()]
         if missing:
-            problems.append(
-                "FOXIT_ESIGN_CONFIRM_SEND=YES but missing: " + ", ".join(missing)
-            )
+            problems.append("FOXIT_ESIGN_CONFIRM_SEND=YES but missing: " + ", ".join(missing))
     if problems:
         raise StartupConfigurationError(
             "ClaimGate startup configuration is invalid:\n- " + "\n- ".join(problems)
@@ -238,9 +235,9 @@ def _diagnostics_snapshot() -> dict[str, object]:
         "serpapi_configured": bool(os.getenv("SERPAPI_API_KEY", "").strip()),
         "semantic_provider": os.getenv("CLAIMGATE_SEMANTIC_PROVIDER", "scripted").strip().lower()
         or "scripted",
-        "public_evidence_provider": os.getenv(
-            "CLAIMGATE_PUBLIC_EVIDENCE_PROVIDER", "scripted"
-        ).strip().lower()
+        "public_evidence_provider": os.getenv("CLAIMGATE_PUBLIC_EVIDENCE_PROVIDER", "scripted")
+        .strip()
+        .lower()
         or "scripted",
         "live_sending_enabled": os.getenv("FOXIT_ESIGN_CONFIRM_SEND", "").strip() == "YES",
     }
@@ -273,9 +270,7 @@ class DemoRun:
     receipt_lock: asyncio.Lock = field(default_factory=asyncio.Lock)
     public_evidence_lock: asyncio.Lock = field(default_factory=asyncio.Lock)
     public_evidence_attempted: set[str] = field(default_factory=set)
-    public_discoveries: dict[str, PublicEvidenceDiscoveryResult] = field(
-        default_factory=dict
-    )
+    public_discoveries: dict[str, PublicEvidenceDiscoveryResult] = field(default_factory=dict)
     stage_started_at: dict[str, float] = field(default_factory=dict)
     stage_duration_ms: dict[str, float] = field(default_factory=dict)
 
@@ -411,15 +406,12 @@ def create_app(
     artifact_directory: Path | None = None,
     attack_runner: AttackRunner | None = None,
     receipt_pdf_generator: DecisionReceiptPdfGenerator | None = None,
-    public_provider_factory: Callable[[DemoPreset], PublicEvidenceProvider]
-    | None = None,
+    public_provider_factory: Callable[[DemoPreset], PublicEvidenceProvider] | None = None,
     public_semantic_engine_factory: Callable[[], SemanticEngine] | None = None,
 ) -> FastAPI:
     _validate_startup_configuration()
     service = demo_service or Phase3DemoService()
-    human_approval_service = approval_service or ApprovalSendService(
-        LiveFoxitESignSender()
-    )
+    human_approval_service = approval_service or ApprovalSendService(LiveFoxitESignSender())
     recipient_factory = signer_factory or signer_from_env
     configured_artifacts = Path(
         os.getenv("CLAIMGATE_WEB_ARTIFACT_DIRECTORY", str(DEFAULT_ARTIFACT_DIRECTORY))
@@ -430,9 +422,7 @@ def create_app(
         service.new_pdf_adapter
     )
     search_provider_factory = public_provider_factory or _public_provider_for_preset
-    comparison_engine_factory = (
-        public_semantic_engine_factory or _public_semantic_engine
-    )
+    comparison_engine_factory = public_semantic_engine_factory or _public_semantic_engine
     registry = RunRegistry()
     users = UserStore()
     sessions = SessionStore()
@@ -603,9 +593,7 @@ def create_app(
     @application.get("/api/attack-lab")
     async def attack_lab_catalog() -> dict[str, object]:
         return {
-            "scenarios": [
-                scenario.model_dump(mode="json") for scenario in security_lab.scenarios
-            ],
+            "scenarios": [scenario.model_dump(mode="json") for scenario in security_lab.scenarios],
             "security_invariants": [
                 assertion.model_dump(mode="json")
                 for assertion in security_lab.security_invariants()
@@ -939,9 +927,7 @@ def create_app(
             media_type="application/json",
             headers={
                 "Cache-Control": "no-store",
-                "Content-Disposition": (
-                    f'attachment; filename="claimgate-{run_id}-receipt.json"'
-                ),
+                "Content-Disposition": (f'attachment; filename="claimgate-{run_id}-receipt.json"'),
             },
         )
 
@@ -975,9 +961,7 @@ def create_app(
             receipt_sha256=payload.receipt_sha256,
             preset=payload.preset,
         )
-        snapshot = apply_replay_preset(
-            _capture_replay_snapshot(run, entry), payload.preset
-        )
+        snapshot = apply_replay_preset(_capture_replay_snapshot(run, entry), payload.preset)
         replay_result = application.state.replay_verifier.verify(
             request=replay_request,
             receipt=entry.receipt,
@@ -1027,9 +1011,7 @@ def create_app(
                     detail="Public evidence provider is not configured",
                 ) from exc
             run.public_evidence_attempted.add(claim_id)
-            enrichment = await PublicEvidenceService(
-                search_provider
-            ).enrich_result(
+            enrichment = await PublicEvidenceService(search_provider).enrich_result(
                 result=result,
                 claim_id=claim_id,
                 fact_type=fact_type,
@@ -1116,17 +1098,13 @@ def _verify_latest_receipt(run: DemoRun):
             evidence=result.evidence,
             policy_profile=result.selected_policy_profile,
             approval=approval,
-            expected_previous_receipt_sha256=(
-                entry.expected_previous_receipt_sha256
-            ),
+            expected_previous_receipt_sha256=(entry.expected_previous_receipt_sha256),
             evidence_documents=result.evidence_documents,
         ),
     )
 
 
-def _capture_replay_snapshot(
-    run: DemoRun, entry: ReceiptChainEntry
-):
+def _capture_replay_snapshot(run: DemoRun, entry: ReceiptChainEntry):
     result = run.result
     if result is None:
         raise ValueError("Replay run has no verification result")
@@ -1142,9 +1120,7 @@ def _capture_replay_snapshot(
     )
 
 
-async def _execute_run(
-    service: Phase3DemoService, registry: RunRegistry, run: DemoRun
-) -> None:
+async def _execute_run(service: Phase3DemoService, registry: RunRegistry, run: DemoRun) -> None:
     try:
         run.output_path.parent.mkdir(parents=True, exist_ok=True)
         run.result = await service.run(
@@ -1201,15 +1177,27 @@ async def _execute_document_run(
                 extracted_text = await pdf_adapter.extract_text_from_pdf(
                     spec.upload_path, extracted_text_path
                 )
-            else:
-                extracted_text = spec.upload_path.read_text(
-                    encoding="utf-8", errors="replace"
+                used_ocr_getter = getattr(pdf_adapter, "extraction_used_ocr", None)
+                used_ocr = bool(used_ocr_getter(extracted_text_path)) if used_ocr_getter else False
+                extracted_document = build_extracted_document(
+                    extracted_text,
+                    pdf_path=spec.upload_path,
+                    used_ocr=used_ocr,
                 )
+                if extracted_document.quality.status is ExtractionQualityStatus.INSUFFICIENT:
+                    codes = ", ".join(extracted_document.quality.blocker_codes)
+                    raise RealDocumentReviewUnavailableError(
+                        "Supporting evidence PDF extraction was insufficient: " + codes
+                    )
+            else:
+                extracted_text = spec.upload_path.read_text(encoding="utf-8", errors="replace")
+                extracted_document = None
             evidence_documents.append(
                 EvidenceIngestor.pdf_derived_text(
                     source_id=spec.source_id,
                     title=spec.title,
                     extracted_text=extracted_text,
+                    extracted_document=extracted_document,
                 )
             )
 
@@ -1302,9 +1290,7 @@ def _serialize_run(run: DemoRun) -> dict[str, object]:
         ),
         "policy_profile": run.policy_profile.value,
         "status": run.status.value,
-        "current_progress": (
-            run.progress_history[-1].value if run.progress_history else None
-        ),
+        "current_progress": (run.progress_history[-1].value if run.progress_history else None),
         "progress": _serialize_progress(run),
         "error": run.public_error,
     }
@@ -1349,6 +1335,7 @@ def _serialize_result(run: DemoRun, result: Phase3Result) -> dict[str, object]:
     evidence_documents_by_id = {
         document.source.source_id: document for document in result.evidence_documents
     }
+    provenance_by_claim = {item.claim_id: item for item in result.claim_provenance}
     claims = []
     for claim in result.extracted_claims:
         verification = verification_by_claim.get(claim.claim_id)
@@ -1357,6 +1344,20 @@ def _serialize_result(run: DemoRun, result: Phase3Result) -> dict[str, object]:
             if verification is not None and verification.evidence_id is not None
             else None
         )
+        evidence_document = evidence_documents_by_id.get(source.source_id) if source else None
+        evidence_page_numbers = (
+            [
+                page.page_number
+                for page in evidence_document.extracted_document.pages
+                if verification and verification.quotation and verification.quotation in page.text
+            ]
+            if (
+                evidence_document
+                and evidence_document.extracted_document
+                and evidence_document.extracted_document.page_provenance_available
+            )
+            else []
+        )
         claims.append(
             {
                 "claim_id": claim.claim_id,
@@ -1364,14 +1365,28 @@ def _serialize_result(run: DemoRun, result: Phase3Result) -> dict[str, object]:
                 "value": claim.normalized_value,
                 "critical": claim.critical,
                 "source_text": claim.source_text,
+                "page_numbers": list(
+                    provenance_by_claim[claim.claim_id].page_numbers
+                    if claim.claim_id in provenance_by_claim
+                    else ()
+                ),
+                "chunk_id": (
+                    provenance_by_claim[claim.claim_id].chunk_id
+                    if claim.claim_id in provenance_by_claim
+                    else None
+                ),
+                "table_origin": (
+                    provenance_by_claim[claim.claim_id].table_origin
+                    if claim.claim_id in provenance_by_claim
+                    else False
+                ),
                 "status": verification.status.value if verification else "FAILED",
                 "evidence_quote": verification.quotation if verification else None,
                 "evidence_source_id": source.source_id if source else None,
                 "evidence_source_title": source.title if source else None,
+                "evidence_page_numbers": evidence_page_numbers,
                 "evidence_authority": (
-                    evidence_documents_by_id[source.source_id].authority.value
-                    if source
-                    else None
+                    evidence_documents_by_id[source.source_id].authority.value if source else None
                 ),
                 "public_search": {
                     "eligible": (
@@ -1387,9 +1402,7 @@ def _serialize_result(run: DemoRun, result: Phase3Result) -> dict[str, object]:
                         and run.profile_approval is None
                     ),
                     "attempted": claim.claim_id in run.public_evidence_attempted,
-                    "url": (
-                        f"/api/runs/{run.run_id}/claims/{claim.claim_id}/public-evidence"
-                    ),
+                    "url": (f"/api/runs/{run.run_id}/claims/{claim.claim_id}/public-evidence"),
                     "discovery": (
                         run.public_discoveries[claim.claim_id].model_dump(mode="json")
                         if claim.claim_id in run.public_discoveries
@@ -1411,16 +1424,44 @@ def _serialize_result(run: DemoRun, result: Phase3Result) -> dict[str, object]:
     ]
     return {
         "decision": "READY_FOR_HUMAN_APPROVAL" if is_ready else "SIGNING_BLOCKED",
-        "decision_label": (
-            "READY FOR HUMAN APPROVAL" if is_ready else "SIGNING BLOCKED"
-        ),
+        "decision_label": ("READY FOR HUMAN APPROVAL" if is_ready else "SIGNING BLOCKED"),
         "claims": claims,
+        "extraction": {
+            "status": result.extracted_document.quality.status.value,
+            "page_count": result.extracted_document.quality.page_count,
+            "pages_with_text": result.extracted_document.quality.pages_with_text,
+            "coverage_ratio": result.extracted_document.quality.coverage_ratio,
+            "printable_ratio": result.extracted_document.quality.printable_ratio,
+            "text_characters": result.extracted_document.quality.text_characters,
+            "table_detected": result.extracted_document.quality.table_detected,
+            "used_ocr": result.extracted_document.quality.used_ocr,
+            "page_provenance_available": (result.extracted_document.page_provenance_available),
+            "chunk_count": result.semantic_chunk_count,
+            "chunked": result.semantic_chunk_count > 1,
+            "checks": [
+                {
+                    "code": check.code,
+                    "status": check.status.value,
+                    "message": check.message,
+                    "page_number": check.page_number,
+                }
+                for check in result.extracted_document.quality.checks
+            ],
+            "ambiguities": [
+                {
+                    "code": ambiguity.code,
+                    "category": ambiguity.category,
+                    "page_numbers": list(ambiguity.page_numbers),
+                    "message": ambiguity.message,
+                }
+                for ambiguity in result.extraction_ambiguities
+            ],
+        },
         "evidence_graph": _serialize_evidence_graph(result),
         "policy_evaluation": {
             "baseline": (
                 "PASS"
-                if result.baseline_decision.outcome
-                is PolicyOutcome.READY_FOR_APPROVAL
+                if result.baseline_decision.outcome is PolicyOutcome.READY_FOR_APPROVAL
                 else "BLOCK"
             ),
             "profile": result.profile_decision.outcome.value,
@@ -1667,8 +1708,7 @@ def _blocker_explanation(claim_id: str | None, result: Phase3Result) -> str:
             )
             evidence_description = (
                 "the authoritative quote"
-                if evidence_document is not None
-                and evidence_document.authority.is_authoritative
+                if evidence_document is not None and evidence_document.authority.is_authoritative
                 else (
                     evidence_document.source.title
                     if evidence_document is not None
@@ -1680,11 +1720,7 @@ def _blocker_explanation(claim_id: str | None, result: Phase3Result) -> str:
                 f"{evidence_value} in {evidence_description}."
             )
     return next(
-        (
-            blocker.message
-            for blocker in result.decision.blockers
-            if blocker.claim_id == claim_id
-        ),
+        (blocker.message for blocker in result.decision.blockers if blocker.claim_id == claim_id),
         "Deterministic policy requirements were not satisfied.",
     )
 
@@ -1703,9 +1739,7 @@ def _public_fact_type(category: ClaimCategory) -> PublicFactType | None:
 
 
 def _public_provider_for_preset(preset: DemoPreset) -> PublicEvidenceProvider:
-    provider_name = os.getenv(
-        "CLAIMGATE_PUBLIC_EVIDENCE_PROVIDER", "scripted"
-    ).lower()
+    provider_name = os.getenv("CLAIMGATE_PUBLIC_EVIDENCE_PROVIDER", "scripted").lower()
     if provider_name == "serpapi":
         return SerpApiPublicEvidenceProvider.from_env()
     if provider_name != "scripted":

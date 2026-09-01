@@ -7,6 +7,7 @@ from enum import Enum
 
 from claimgate.domain import EvidenceSource
 from claimgate.evidence_graph import EvidenceAuthority, EvidenceProvenance
+from claimgate.extraction import ExtractedDocument
 
 
 class EvidenceKind(str, Enum):
@@ -21,6 +22,7 @@ class EvidenceDocument:
     kind: EvidenceKind
     authority: EvidenceAuthority = EvidenceAuthority.INTERNAL
     provenance: EvidenceProvenance | None = None
+    extracted_document: ExtractedDocument | None = None
 
 
 class EvidenceIngestor:
@@ -47,6 +49,7 @@ class EvidenceIngestor:
         title: str,
         extracted_text: str,
         authority: EvidenceAuthority = EvidenceAuthority.INTERNAL,
+        extracted_document: ExtractedDocument | None = None,
     ) -> EvidenceDocument:
         return EvidenceDocument(
             source=EvidenceSource(
@@ -56,4 +59,5 @@ class EvidenceIngestor:
             ),
             kind=EvidenceKind.PDF_DERIVED_TEXT,
             authority=authority,
+            extracted_document=extracted_document,
         )

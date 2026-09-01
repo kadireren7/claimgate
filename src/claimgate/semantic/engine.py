@@ -16,6 +16,11 @@ from claimgate.domain import (
     evidence_sha256,
 )
 from claimgate.domain.models import CRITICAL_CLAIM_CATEGORIES
+from claimgate.extraction import (
+    ClaimProvenance,
+    ExtractedDocument,
+    chunk_document,
+)
 from claimgate.semantic.models import (
     ClaimExtractionPayload,
     EvidenceComparison,
@@ -56,6 +61,13 @@ class SemanticVerificationBundle:
     comparisons: tuple[EvidenceComparison, ...]
 
 
+@dataclass(frozen=True)
+class PageAwareClaimExtraction:
+    claims: tuple[ExtractedClaim, ...]
+    provenance: tuple[ClaimProvenance, ...]
+    chunk_count: int
+
+
 class SemanticEngine:
     def __init__(self, provider: StructuredSemanticProvider) -> None:
         self._provider = provider
@@ -63,12 +75,98 @@ class SemanticEngine:
     async def extract_claims(self, pdf_text: str) -> tuple[ExtractedClaim, ...]:
         if not pdf_text.strip():
             raise SemanticOutputError("Foxit-extracted PDF text is empty")
+        return await self._extract_claims_payload(
+            untrusted_data={"pdf_text": pdf_text},
+            exact_source=pdf_text,
+            require_claims=True,
+        )
+
+    async def extract_claims_page_aware(
+        self, document: ExtractedDocument
+    ) -> PageAwareClaimExtraction:
+        """Extract per stable page chunk and retain deterministic source provenance."""
+
+        chunks = chunk_document(document)
+        merged: list[ExtractedClaim] = []
+        provenance: list[ClaimProvenance] = []
+        dedupe_keys: set[tuple[object, ...]] = set()
+        used_ids: set[str] = set()
+        for chunk in chunks:
+            if len(chunks) == 1:
+                claims = await self.extract_claims(document.combined_text)
+            else:
+                claims = await self._extract_claims_payload(
+                    untrusted_data={
+                        "chunk_id": chunk.chunk_id,
+                        "page_range": [chunk.page_start, chunk.page_end],
+                        "pages": [
+                            {
+                                "page_number": page.page_number,
+                                "text": page.text,
+                                "table_like": page.table_like,
+                            }
+                            for page in chunk.pages
+                        ],
+                    },
+                    exact_source=chunk.text,
+                    require_claims=False,
+                )
+            for claim in claims:
+                source_pages = tuple(
+                    page.page_number for page in chunk.pages if claim.source_text in page.text
+                )
+                if not source_pages:
+                    raise SemanticOutputError(
+                        f"Extracted claim has no exact page source: {claim.claim_id}"
+                    )
+                pages = source_pages if document.page_provenance_available else ()
+                key = (
+                    claim.category,
+                    claim.normalized_value.casefold().strip(),
+                    pages,
+                    claim.source_text,
+                )
+                if key in dedupe_keys:
+                    continue
+                dedupe_keys.add(key)
+                claim_id = claim.claim_id
+                if claim_id in used_ids:
+                    claim_id = f"{chunk.chunk_id}:{claim_id}"
+                    claim = claim.model_copy(update={"claim_id": claim_id})
+                used_ids.add(claim_id)
+                merged.append(claim)
+                provenance.append(
+                    ClaimProvenance(
+                        claim_id=claim_id,
+                        page_numbers=pages,
+                        chunk_id=chunk.chunk_id,
+                        table_origin=any(
+                            page.table_like and claim.source_text in page.text
+                            for page in chunk.pages
+                        ),
+                    )
+                )
+        if not merged:
+            raise SemanticOutputError("Claim extraction returned no claims")
+        return PageAwareClaimExtraction(
+            claims=tuple(merged),
+            provenance=tuple(provenance),
+            chunk_count=len(chunks),
+        )
+
+    async def _extract_claims_payload(
+        self,
+        *,
+        untrusted_data: dict[str, object],
+        exact_source: str,
+        require_claims: bool,
+    ) -> tuple[ExtractedClaim, ...]:
         request = StructuredRequest(
             operation=SemanticOperation.EXTRACT_CLAIMS,
             schema_name="claimgate_claim_extraction",
             response_schema=ClaimExtractionPayload.model_json_schema(),
             developer_instructions=CLAIM_EXTRACTION_INSTRUCTIONS,
-            untrusted_data={"pdf_text": pdf_text},
+            untrusted_data=untrusted_data,
         )
         raw = await self._complete(request)
         try:
@@ -77,7 +175,7 @@ class SemanticEngine:
             raise SemanticOutputError("Malformed claim extraction output") from exc
         if not payload.complete:
             raise SemanticOutputError("Claim extraction was marked incomplete")
-        if not payload.claims:
+        if require_claims and not payload.claims:
             raise SemanticOutputError("Claim extraction returned no claims")
 
         seen: set[str] = set()
@@ -85,7 +183,7 @@ class SemanticEngine:
             if claim.claim_id in seen:
                 raise SemanticOutputError(f"Duplicate extracted claim ID: {claim.claim_id}")
             seen.add(claim.claim_id)
-            if claim.source_text not in pdf_text:
+            if claim.source_text not in exact_source:
                 raise SemanticOutputError(
                     f"Extracted source text is not verbatim in the PDF: {claim.claim_id}"
                 )
@@ -213,9 +311,7 @@ class SemanticEngine:
             SemanticVerificationStatus.UNCERTAIN: 2,
             SemanticVerificationStatus.SUPPORTED: 3,
         }
-        by_claim: dict[str, list[EvidenceComparison]] = {
-            claim.claim_id: [] for claim in claims
-        }
+        by_claim: dict[str, list[EvidenceComparison]] = {claim.claim_id: [] for claim in claims}
         for comparison in comparisons:
             by_claim[comparison.claim_id].append(comparison)
 
