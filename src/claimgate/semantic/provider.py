@@ -63,7 +63,7 @@ class OpenAIResponsesProvider:
         api_key: str,
         model: str,
         base_url: str = "https://api.openai.com/v1",
-        timeout_seconds: float = 60.0,
+        timeout_seconds: float = 180.0,
     ) -> None:
         if not api_key.strip():
             raise ValueError("api_key must not be empty")
@@ -120,6 +120,14 @@ class OpenAIResponsesProvider:
         return parsed
 
     def _build_payload(self, request: StructuredRequest) -> dict[str, Any]:
+        untrusted_text = "UNTRUSTED_DATA_JSON\n" + json.dumps(
+            request.untrusted_data,
+            ensure_ascii=False,
+            separators=(",", ":"),
+        )
+        citation_catalog = self._render_citation_catalog(request.untrusted_data)
+        if citation_catalog:
+            untrusted_text += "\n\nUNTRUSTED_EXACT_SOURCE_LINES\n" + citation_catalog
         return {
             "model": self._model,
             "store": False,
@@ -135,12 +143,7 @@ class OpenAIResponsesProvider:
                     "content": [
                         {
                             "type": "input_text",
-                            "text": "UNTRUSTED_DATA_JSON\n"
-                            + json.dumps(
-                                request.untrusted_data,
-                                ensure_ascii=False,
-                                separators=(",", ":"),
-                            ),
+                            "text": untrusted_text,
                         }
                     ],
                 },
@@ -154,6 +157,32 @@ class OpenAIResponsesProvider:
                 }
             },
         }
+
+    @staticmethod
+    def _render_citation_catalog(untrusted_data: Mapping[str, Any]) -> str:
+        """Render citation candidates without JSON escaping; they remain untrusted user data."""
+
+        entries: list[str] = []
+
+        def collect(value: object, path: str) -> None:
+            if isinstance(value, Mapping):
+                for key, child in value.items():
+                    child_path = f"{path}.{key}" if path else str(key)
+                    if key == "source_lines" and isinstance(child, Sequence):
+                        for index, line in enumerate(child):
+                            if isinstance(line, str):
+                                entries.append(
+                                    f"SOURCE {child_path}[{index}] LENGTH={len(line)}\n"
+                                    f"{line}\nEND SOURCE"
+                                )
+                    else:
+                        collect(child, child_path)
+            elif isinstance(value, Sequence) and not isinstance(value, (str, bytes)):
+                for index, child in enumerate(value):
+                    collect(child, f"{path}[{index}]")
+
+        collect(untrusted_data, "")
+        return "\n".join(entries)
 
     @staticmethod
     def _find_output_text(body: Mapping[str, Any]) -> str:

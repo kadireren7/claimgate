@@ -244,6 +244,20 @@ async def test_multiple_money_candidates_become_uncertain_and_block(tmp_path: Pa
     assert "CRITICAL_CLAIM_UNCERTAIN" in {blocker.code for blocker in result.decision.blockers}
 
 
+def test_labeled_unit_price_and_contract_total_are_not_ambiguous(tmp_path: Path) -> None:
+    text = (
+        "Item Quantity Unit Price Delivery Date\n"
+        "Sensor module 250 units USD 50.00 2026-10-15\n"
+        "Contract Amount: total amount payable is USD 12,500.00\n"
+        + ("ordinary obligation context " * 20)
+    )
+    document = build_extracted_document(text, pdf_path=_pdf(tmp_path / "priced-item.pdf", 1))
+
+    ambiguities = detect_material_ambiguities(document)
+
+    assert "AMBIGUOUS_MONEY_VALUE" not in {item.code for item in ambiguities}
+
+
 def test_repeated_headers_are_reported_as_degraded(tmp_path: Path) -> None:
     pages = [
         _page(f"CLAIMGATE MASTER AGREEMENT\nUnique clause for page {number}")

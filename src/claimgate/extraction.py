@@ -370,13 +370,28 @@ def detect_material_ambiguities(document: ExtractedDocument) -> tuple[Extraction
     )
     ambiguities: list[ExtractionAmbiguity] = []
     for code, category, pattern in patterns:
-        candidates: dict[str, set[int]] = {}
+        candidates_by_field: dict[str, dict[str, set[int]]] = {}
         for page in document.pages:
             for match in pattern.finditer(page.text):
                 raw = match.group(1) if match.lastindex else match.group(0)
                 normalized = " ".join(raw.casefold().replace(",", "").split())
-                candidates.setdefault(normalized, set()).add(page.page_number)
-        if len(candidates) > 1:
+                field = (
+                    _money_semantic_field(page.text, match.start())
+                    if category == "money"
+                    else category
+                )
+                candidates_by_field.setdefault(field, {}).setdefault(normalized, set()).add(
+                    page.page_number
+                )
+        ambiguous_groups = [
+            candidates for candidates in candidates_by_field.values() if len(candidates) > 1
+        ]
+        if ambiguous_groups:
+            candidates = {
+                value: pages
+                for group in ambiguous_groups
+                for value, pages in group.items()
+            }
             pages = (
                 sorted({number for numbers in candidates.values() for number in numbers})
                 if document.page_provenance_available
@@ -395,6 +410,22 @@ def detect_material_ambiguities(document: ExtractedDocument) -> tuple[Extraction
                 )
             )
     return tuple(ambiguities)
+
+
+def _money_semantic_field(text: str, match_start: int) -> str:
+    """Separate clearly labeled totals from unit prices before ambiguity gating."""
+
+    line_start = text.rfind("\n", 0, match_start) + 1
+    previous_start = text.rfind("\n", 0, max(0, line_start - 1)) + 1
+    line_end = text.find("\n", match_start)
+    if line_end < 0:
+        line_end = len(text)
+    context = text[previous_start:line_end].casefold()
+    if "contract amount" in context or "total amount payable" in context:
+        return "contract_total"
+    if "unit price" in context or re.search(r"\bunits?\b", context):
+        return "unit_price"
+    return "unlabeled_money"
 
 
 def _split_pages(text: str, estimated_pages: int) -> tuple[list[str], bool]:

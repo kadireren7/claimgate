@@ -1,0 +1,15 @@
+CLAIMGATE DEMO - AUTHORITATIVE APPROVED TERMS
+
+Source: Procurement Approval Record PR-2026-441
+Status: APPROVED
+Approved by: Procurement Director and Finance Controller
+
+Buyer: Asterion Robotics Ltd.
+Supplier: Northstar Components LLC
+Approved contract amount: USD 15,000.00
+Approved quantity: 250 NS-400 Industrial Sensor Modules
+Approved delivery date: October 15, 2026
+Approved deliverable: Industrial sensor modules plus up to 16 hours of remote integration support
+Approved support completion date: October 20, 2026
+
+This record is the authoritative internal approval source for the commercial terms above.
